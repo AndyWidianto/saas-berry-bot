@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "apps/core-backend/src",
+  "compilerOptions": {
+    "deleteOutDir": true
+  },
+  "projects": {
+    "core-backend": {
+      "type": "application",
+      "root": "apps/core-backend",
+      "entryFile": "main",
+      "sourceRoot": "apps/core-backend/src"
+    },
+    "whatsapp-gateway": {
+      "type": "application",
+      "root": "apps/whatsapp-gateway",
+      "entryFile": "main",
+      "sourceRoot": "apps/whatsapp-gateway/src"
+    },
+    "message-gateway": {
+      "type": "application",
+      "root": "apps/message-gateway",
+      "entryFile": "main",
+      "sourceRoot": "apps/message-gateway/src"
+    }
+  }
+}

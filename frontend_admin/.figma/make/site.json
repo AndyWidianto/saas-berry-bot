@@ -1,0 +1,10 @@
+{
+  "description": "Manage and oversee workspaces, users, and AI infrastructure with a powerful dashboard tailored for system administrators of a WhatsApp and web chatbot platform.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

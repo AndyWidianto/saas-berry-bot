@@ -1,0 +1,625 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
+}
+
+enum UserRole {
+  admin
+  super_admin
+  user
+  review
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String?
+  username     String   @unique
+  password     String
+  email        String   @unique
+  refreshToken String?
+  role         UserRole
+
+  thumbnail  String?
+  profileUrl String?
+
+  workspaceMember WorkspaceMember[]
+  apikeys         ApiKey[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([username, email])
+  @@map("users")
+}
+
+model Workspace {
+  id      String  @id @default(uuid())
+  name    String // Nama ruang kerja, misal: "Tim Marketing A"
+  slug    String  @unique // URL-friendly name, misal: "tim-marketing-a"
+  logoUrl String? @map("logo_url")
+
+  systemRules            String? @map("system_rules") @db.Text
+  greetingText           String? @map("greeting_text") @db.Text
+  // Info Kepemilikan Utama
+  ownerId                String  @map("owner_id") // ID User pembuat/pemilik utama workspace
+  activeChatModelId      String?
+  activeEmbeddingModelId String?
+
+  chunkSize    Int @default(500) @map("chunk_size")
+  chunkOverlap Int @default(50) @map("chunk_overlap")
+
+  isAiActive          Boolean @default(true)
+  rewrite             Boolean @default(false)
+  isAutoAssignEnabled Boolean @default(true) // Menangani toggle "Auto-assignment"
+  workingHoursEnabled Boolean @default(false) // Toggle apakah aturan jam kerja dipakai/tidak
+  timezone            String  @default("Asia/Jakarta") // Mencegah perbedaan jam server & pengguna
+  workingHours        Json?
+
+  notificationSettings Json?
+
+  // Audit Logs
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  embeddingModel    AIModel?          @relation("EmbeddingModelRelation", fields: [activeEmbeddingModelId], references: [id], onDelete: Cascade)
+  chatModel         AIModel?          @relation("ChatModelRelation", fields: [activeChatModelId], references: [id], onDelete: Cascade)
+  integrations      Integration[]
+  knowledges        Knowledge[]
+  messages          Message[]
+  knowledgeItems    KnowledgeItem[]
+  notifications     Notification[]
+  tokenBalances     TokenBalance[]
+  creditLedgers     CreditLedger[]
+  invoices          Invoice[]
+  ailogs            AiLog[]
+  apikeys           ApiKey[]
+  contacts          Contact[]
+  products          Product[]
+  workspaceBalances WorkspaceBalance?
+
+  members WorkspaceMember[]
+
+  @@map("workspaces")
+}
+
+model ApiKey {
+  id         String @id @default(uuid())
+  name       String // Nama/label API Key (contoh: "Development Key", "Production Webhook")
+  keyPrefix  String // 8 karakter pertama untuk identifikasi di UI (contoh: "kb_live_")
+  secretHash String // Hash SHA-256 dari secret asli (bukan plaintext!)
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  permissions String[]  @default(["*"]) // Scope/izin akses (contoh: ["chat:read", "chat:write"])
+  lastUsedAt  DateTime?
+  expiresAt   DateTime? // Tanggal kedaluwarsa (optional)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([keyPrefix])
+  @@index([workspaceId])
+}
+
+enum RoleWorkspaceMember {
+  ADMIN
+  OWNER
+  MEMBER
+}
+
+enum MemberStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+model WorkspaceMember {
+  id          String  @id @default(uuid())
+  workspaceId String  @map("workspace_id")
+  userId      String? @map("user_id") // Di-nullable-kan jika mendukung alur undangan email
+
+  // Role & Akses
+  role RoleWorkspaceMember @default(MEMBER)
+
+  // Status Keanggotaan & Undangan
+  status       MemberStatus @default(ACTIVE)
+  invitedEmail String?      @map("invited_email") // Menyimpan email jika user belum daftar/menerima undangan
+  invitedBy    String?      @map("invited_by") // User ID yang mengundang
+
+  // Metadata Aktivitas
+  lastActiveAt DateTime? @map("last_active_at")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Definisi Relasi
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Catatan: Jika memiliki fitur percakapan khusus per member dalam workspace
+  // conversations Conversation[]
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId, status])
+  @@map("workspace_members")
+}
+
+enum TransactionType {
+  TOPUP
+  USAGE
+  REFUND
+}
+
+model WorkspaceBalance {
+  id          String    @id @default(uuid())
+  workspaceId String    @unique @map("workspace_id")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // Perubahan di sini: Decimal(15, 4)
+  amount Decimal @default(0.0000) @db.Decimal(15, 4)
+
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  transactions BalanceTransaction[]
+
+  @@map("workspace_balances")
+}
+
+model BalanceTransaction {
+  id                 String           @id @default(uuid())
+  workspaceBalanceId String           @map("workspace_balance_id")
+  workspaceBalance   WorkspaceBalance @relation(fields: [workspaceBalanceId], references: [id], onDelete: Cascade)
+
+  amount      Decimal         @db.Decimal(10, 2) // Positif jika Top Up, Negatif jika terpakai
+  type        TransactionType
+  description String? // Misal: "Top up via QRIS" atau "Pemakaian token AI Agent X"
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("balance_transactions")
+}
+
+enum StatusIntegration {
+  CONNECTING
+  CONNECTED
+  DISCONNECTED
+}
+
+enum PlatformType {
+  WHATSAPP_BAYLIES
+  WHATSAPP
+  EMAIL
+  API
+}
+
+model Integration {
+  id           String            @id @default(uuid())
+  name         String
+  number       String?
+  email        String?
+  platform     PlatformType      @default(WHATSAPP_BAYLIES) // WHATSAPP_BAYLIES, WHATSAPP
+  instanceName String            @unique
+  status       StatusIntegration @default(CONNECTING)
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  settings  Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([number, instanceName, workspaceId])
+  @@map("devices")
+}
+
+enum StatusKnowledge {
+  INDEXED
+  PROCESSING
+  PENDING
+}
+
+model Knowledge {
+  id         String          @id @default(uuid())
+  name       String          @default("")
+  status     StatusKnowledge @default(PENDING)
+  type       String          @default("txt")
+  totalChunk Int             @default(0) @map("total_chunk") // Ditambahkan @map agar konsisten di DB
+  size       Int // Diubah ke Int agar aman dari JSON serialization error
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  knowledgeItems KnowledgeItem[]
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@map("knowledges")
+}
+
+model KnowledgeItem {
+  id      String @id @default(uuid())
+  content String @db.Text // Diubah ke @db.Text agar bisa menampung chunk teks yang panjang
+
+  embedding Unsupported("vector")?
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  knowledgeId String
+  knowledge   Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("knowledge_items")
+}
+
+model Message {
+  id                String       @id @default(uuid())
+  platform          PlatformType // "WHATSAPP", "TELEGRAM", "INSTAGRAM", "EMAIL"
+  providerMessageId String?      @map("provider_message_id")
+
+  // Data Pengirim & Penerima Generik
+  fromMe     Boolean @default(false) @map("from_me")
+  senderId   String  @map("sender_id") // Menggantikan remote_jid (bisa berisi JID WA, ID Telegram, atau Email)
+  senderName String? @map("sender_name") // Menggantikan push_name
+
+  // Konten Pesan
+  content  String  @db.Text
+  type     String  @default("text") // text, image, document, audio, video
+  mediaUrl String? @map("media_url") // Tambahan: Penting untuk pesan non-teks
+
+  aiLogs      AiLog?
+  // user 
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  contactId String?  @map("contact_id")
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  // Metadata & Audit
+  status    String   @default("sent") // sent, delivered, read, failed
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Indexing berdasarkan kombinasi platform dan senderId untuk mempercepat penarikan riwayat chat
+  @@index([platform, senderId])
+  @@map("messages")
+}
+
+model Notification {
+  id          String @id @default(uuid())
+  workspaceId String // ID User SaaS pemilik notifikasi
+
+  title   String @default("")
+  message String @db.Text
+
+  // Kategori Notifikasi untuk mempermudah filter di UI React
+  // Contoh isi: "SYSTEM", "BILLING", "WHATSAPP_STATUS", "BROADCAST_ALERT"
+  category String @default("SYSTEM")
+
+  // Level urgensi untuk pewarnaan di UI Tailwind (merah untuk error, kuning untuk warning, dll)
+  // Contoh isi: "INFO", "WARNING", "ERROR", "SUCCESS"
+  level String @default("INFO")
+
+  // Status Baca
+  isRead Boolean   @default(false) @map("is_read")
+  readAt DateTime? @map("read_at") // Mencatat kapan user membuka notifikasi ini
+
+  // Metadata Tambahan (Opsional)
+  // Digunakan jika ingin menyelipkan data JSON (misal: {"instanceId": "whatsapp-xyz"} jika koneksi putus)
+  metadata Json? @map("metadata")
+
+  // Audit Logs
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // Indexing untuk performa query saat user membuka dashboard
+  @@index([workspaceId, isRead])
+  @@map("notifications")
+}
+
+enum ProviderAI {
+  GOOGLE
+  OPENAI
+  MISTRAL
+  LOCAL_OLLAMA
+}
+
+model AIModel {
+  id        String     @id @default(uuid())
+  name      String // Nama komersial, misal: "Gemini 1.5 Flash" atau "GPT-4o"
+  modelCode String     @unique @map("model_code") // ID asli API, misal: "gemini-1.5-flash" atau "gpt-4o"
+  provider  ProviderAI // "GOOGLE", "OPENAI", "MISTRAL", "LOCAL_OLLAMA"
+
+  tenantMarkup Float @default(2.5)
+
+  isChat      Boolean @default(true) @map("is_chat") // Bisa untuk chatbot / text generation?
+  isEmbedding Boolean @default(false) @map("is_embedding") // Bisa untuk generate vector RAG?
+  isVision    Boolean @default(false) @map("is_vision") // Bisa membaca gambar/multimodal?
+  isAudio     Boolean @default(false) @map("is_audio") // Bisa transkrip/suara?
+
+  contextWindow  Int @default(4096) @map("context_window") // Maksimal token input + output
+  maxOutputToken Int @default(1024) @map("max_output_token") // Batasan output sekali generate
+
+  inputPricePer1M  Float @default(0) @map("input_price_per_1m") // Harga per 1 juta token input (USD/IDR)
+  outputPricePer1M Float @default(0) @map("output_price_per_1m") // Harga per 1 juta token output (USD/IDR)
+
+  isActive Boolean @default(true) @map("is_active") // Apakah model ini sedang aktif/bisa dipilih oleh user?
+
+  workspacesAsEmbedding Workspace[] @relation("EmbeddingModelRelation")
+  workspacesAsChat      Workspace[] @relation("ChatModelRelation")
+
+  // Audit Logs
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_models")
+}
+
+model TokenBalance {
+  id          String     @id @default(uuid())
+  workspaceId String
+  name        String // Nama komersial, misal: "Gemini 1.5 Flash" atau "GPT-4o"
+  modelCode   String     @map("model_code") // ID asli API, misal: "gemini-1.5-flash" atau "gpt-4o"
+  provider    ProviderAI // "GOOGLE", "OPENAI", "MISTRAL", "LOCAL_OLLAMA"
+
+  // Total sisa token yang bisa digunakan oleh workspace ini
+  remainingToken Int @default(0) @map("remaining_token")
+
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  // Total token yang sudah dihabiskan sepanjang waktu (untuk statistik dashboard)
+  totalUsedToken          Int @default(0) @map("total_used_token")
+  totalUsedEmbeddingToken Int @default(0) @map("total_used_embedding_token")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relasi ke model Workspace yang sudah dibuat sebelumnya
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("token_balances")
+}
+
+model Article {
+  id      String @id @default(uuid())
+  title   String
+  slug    String @unique
+  content String @db.Text
+
+  metaTitle       String? @map("meta_title") // Jika kosong, fallback ke title
+  metaDescription String? @map("meta_description") @db.Text // Max ~150-160 karakter
+  keywords        String? // Opsional: kata kunci dipisah koma
+
+  featuredImage    String? @map("featured_image") // URL Gambar Utama
+  featuredImageAlt String? @map("featured_image_alt") // Alt Text gambar (Penting untuk SEO Gambar)
+  excerpt          String? @db.Text // Ringkasan artikel
+
+  authorName String @default("Tim Redaksi") @map("author_name")
+
+  isPublished Boolean   @default(false) @map("is_published")
+  publishedAt DateTime? @map("published_at") // Dipakai untuk Schema.org datePublished
+  isIndexable Boolean   @default(true) @map("is_indexable") // Noindex flag jika artikel privat
+
+  // Relations
+  tags ArticleTag[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([slug])
+  @@index([isPublished, publishedAt])
+  @@map("articles")
+}
+
+model Tag {
+  id   String @id @default(uuid())
+  name String @unique
+  slug String @unique
+
+  // Explicit Relation to Pivot Model
+  articles ArticleTag[]
+
+  createdAt DateTime @default(now())
+
+  @@index([slug])
+  @@map("tags")
+}
+
+// Pivot Model
+model ArticleTag {
+  articleId String
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  tagId String
+  tag   Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  assignedAt DateTime @default(now())
+
+  @@id([articleId, tagId]) // Composite Primary Key
+  @@map("article_tags")
+}
+
+model AiLog {
+  id String @id @default(uuid())
+
+  // Data Percakapan
+  question String @db.Text
+  answer   String @db.Text
+
+  // Metrik Performa AI
+  confidence  Float // Nilai skor misal: 0.85 (85%)
+  isFallback  Boolean @default(false) // True jika AI tidak paham & beri jawaban default
+  isEscalated Boolean @default(false) // True jika dialihkan ke CS Manusia
+
+  // Metadata Tambahan
+  modelName  String? // Contoh: "llama3:8b", "deepseek-r1", "gpt-4o"
+  latencyMs  Int? // Waktu pemrosesan AI dalam milidetik (misal: 1200 ms)
+  tokensUsed Int? // Jumlah token yang dikonsumsi (jika ada)
+
+  // Relasi
+  messageId   String?   @unique
+  message     Message?  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([confidence])
+  @@index([isFallback])
+  @@index([isEscalated])
+  @@index([createdAt])
+}
+
+// Enum Status Invoice
+enum InvoiceStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+// Enum Platform Integrasi yang Didukung
+enum IntegrationChannel {
+  WHATSAPP
+  TELEGRAM
+  INSTAGRAM
+  FACEBOOK_MESSENGER
+  WEB_WIDGET
+  API
+}
+
+// Enum Jenis Transaksi Kredit
+enum CreditTransactionType {
+  TOP_UP // Penambahan kredit dari Invoice
+  USAGE_CHAT // Pengurangan kredit saat chatbot membalas
+  USAGE_RAG // Pengurangan kredit saat indexing/embedding dokumen
+  REFUND // Pengembalian kredit jika terjadi kegagalan sistem
+  USAGE_REWRITE
+  BONUS // Kredit promo / pendaftaran awal
+}
+
+model Invoice {
+  id            String @id @default(cuid())
+  invoiceNumber String @unique // Contoh: INV/2026/08/0001
+  workspaceId   String
+
+  creditAmount Int // Jumlah kredit yang dibeli
+  subtotal     Decimal @db.Decimal(12, 2)
+  taxAmount    Decimal @default(0) @db.Decimal(12, 2)
+  totalAmount  Decimal @db.Decimal(12, 2) // Total biaya (IDR)
+  currency     String  @default("IDR")
+
+  status   InvoiceStatus @default(PENDING)
+  issuedAt DateTime      @default(now())
+  paidAt   DateTime?
+
+  paymentProvider String? // xendit | midtrans | tripay
+  paymentMethod   String? // qris, ewallet, bank_transfer
+  externalId      String? // ID Referensi dari Payment Gateway
+  paymentUrl      String? // Link bayar invoice
+
+  pdfUrl String?
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creditLedger CreditLedger?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([invoiceNumber])
+  @@map("invoices")
+}
+
+model CreditLedger {
+  id          String  @id @default(cuid())
+  workspaceId String
+  invoiceId   String? @unique // Terisi hanya untuk transaksi TOP_UP
+
+  amount      Float // Nilai positif (+10000) atau negatif (-5)
+  type        CreditTransactionType
+  channel     IntegrationChannel? // Asal channel: WHATSAPP, TELEGRAM, WEB_WIDGET, dll.
+  description String // Contoh: "Reply via Instagram DM (120 tokens)"
+
+  tokensUsed    Int? // Token LLM yang dipakai (RAG/Prompt)
+  externalMsgId String? // ID pesan dari platform asal (WA Msg ID, Telegram Update ID, dll)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invoice   Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId])
+  @@index([channel])
+  @@map("credit_ledgers")
+}
+
+model Contact {
+  id String @id @default(uuid())
+
+  // Identifikasi Pengirim (Nomor HP, JID WhatsApp, ID Telegram, dsb)
+  phoneNumber String? @map("phone_number") // Nomor HP murni (contoh: 628123456789)
+  senderId    String  @map("sender_id") // ID Unik dari provider (contoh: 628123456789@s.whatsapp.net)
+  name        String? // Nama kontak/push_name dari WA
+  avatarUrl   String? @map("avatar_url") // URL foto profil kontak
+
+  // Metadata & Status
+  isBlocked Boolean @default(false) @map("is_blocked")
+  metadata  Json? // Data kustom tambahan (contoh: email, alamat, tags, crm_id)
+
+  // Relasi ke Workspace (Multi-tenant isolation)
+  workspaceId String    @map("workspace_id")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  // Audit Timestamps
+  lastActiveAt DateTime @default(now()) @map("last_active_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Kombinasi workspaceId dan senderId harus unik agar kontak tidak duplikat di dalam workspace yang sama
+  @@unique([workspaceId, senderId])
+  @@index([workspaceId])
+  @@index([phoneNumber])
+  @@map("contacts")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  workspaceId String   @map("workspace_id")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name        String   // Contoh: "Beasiswa KIP Kuliah"
+  category    String?  // Contoh: "Beasiswa", "Program Studi", "Fasilitas"
+  description String   @db.Text // Penjelasan detail produk/fasilitas
+  benefits    String?  @db.Text // Contoh: "Tanpa biaya uang gedung, Gratis SPP 8 semester, Uang saku bulanan"
+  imageUrl    String?  @map("image_url") // Link gambar pendukung
+
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("products")
+}
+
