@@ -42,12 +42,12 @@ export const navigation: NavSection[] = [
       { title: 'Quickstart', href: '/docs/quickstart', icon: Zap },
     ],
   },
-  {
-    title: 'WhatsApp Integration',
-    items: [
-      { title: 'Connect WhatsApp', href: '/docs/whatsapp-connect', icon: MessageSquare },
-    ],
-  },
+  // {
+  //   title: 'WhatsApp Integration',
+  //   items: [
+  //     { title: 'Connect WhatsApp', href: '/docs/whatsapp-connect', icon: MessageSquare },
+  //   ],
+  // },
   {
     title: 'AI & Knowledge Base',
     items: [

@@ -194,7 +194,7 @@ export class ChatbotService {
         ]);
 
         //Update Cache
-        await this.updateWorkspaceCache(workspaceId, workspace, [...messages, userMessage, aiMessage]);
+        await this.updateWorkspaceCache(workspaceId, senderId, workspace, [...messages, userMessage, aiMessage]);
 
         // Return Format Output
         return {
@@ -346,9 +346,22 @@ export class ChatbotService {
         }
     }
 
-    private async updateWorkspaceCache(workspaceId: string, workspace: any, newMessages: any[]) {
-        workspace.messages = newMessages;
-        await this.cacheManager.set(workspaceId, workspace, 1000 * 60 * 5);
+    async updateWorkspaceCache(workspaceId: string, senderId: string, workspace: any, newMessages: any[]) {
+        const keyWorkspace = `workspace:${workspaceId}:sender:${senderId}`;
+
+        // Ambil maksimal 10 pesan terbaru (jika array diurutkan dari lama ke baru)
+        const trimmedMessages = newMessages.length > 10
+            ? newMessages.slice(-10)
+            : newMessages;
+
+        // Buat objek baru (spread operator) untuk menghindari mutasi referensi workspace asal
+        const updatedWorkspace = {
+            ...workspace,
+            messages: trimmedMessages,
+        };
+
+        // Simpan ke CacheManager (TTL 5 menit)
+        await this.cacheManager.set(keyWorkspace, updatedWorkspace, 1000 * 60 * 5);
     }
 
     async validateApiKey(keyPrefix: string, apiKey: string) {
@@ -419,8 +432,9 @@ export class ChatbotService {
 
         return contextChunks;
     }
-    async getWorkspace(workspaceId: string, senderId?: string) {
-        let existingWorkspace: WorkspaceWithModels | null | undefined = await this.cacheManager.get(workspaceId);
+    async getWorkspace(workspaceId: string, senderId: string) {
+        const keyWorkspace = `workspace:${workspaceId}:sender:${senderId}`;
+        let existingWorkspace: WorkspaceWithModels | null | undefined = await this.cacheManager.get(keyWorkspace);
         if (existingWorkspace && existingWorkspace.workspaceBalances) {
             existingWorkspace.workspaceBalances.amount = new Decimal(existingWorkspace.workspaceBalances.amount);
         }
@@ -728,10 +742,13 @@ export class ChatbotService {
     async getMessages(keyPrefix: string, apiKey: string, contactId: string, { cursor, limit }: GetQueryBotDto) {
         const { data } = await this.validateApiKey(keyPrefix, apiKey);
         const take = limit ? limit : 20;
+        const senderId = this.buildSessionId(contactId);
         const query: Prisma.MessageFindManyArgs = {
             where: {
                 workspaceId: data.workspaceId,
-                senderId: this.buildSessionId(contactId)
+                senderId: {
+                    in: [senderId, contactId] // Gunakan 'in' alih-alih 'OR'
+                }
             },
             ...cursor ? {
                 cursor: {
@@ -739,7 +756,10 @@ export class ChatbotService {
                 },
                 skip: 1,
             } : {},
-            take
+            take,
+            orderBy: {
+                createdAt: 'desc' // Wajib untuk deterministik cursor pagination
+            },
         }
         const [messages, totalMessage] = await this.prisma.$transaction([
             this.prisma.message.findMany(query),

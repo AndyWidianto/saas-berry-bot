@@ -273,7 +273,7 @@ export default function QuickstartPage() {
                   <span className="text-emerald-400">"{baseUrlMessageGateway}/YOUR_BERRY_SWEET_KEY_PREFIX/sendMessage"</span> \{'\n'}
                   {'  '}<span className="text-violet-400">-H</span> <span className="text-sky-300">"apikey: YOUR_BERRY_SWEET_API_KEY"</span> \{'\n'}
                   {'  '}<span className="text-violet-400">-H</span> <span className="text-sky-300">"Content-Type: application/json"</span> \{'\n'}
-                  {'  '}<span className="text-violet-400">-d</span> <span className="text-slate-300">'&#123;'</span>{'\n'}
+                  {'  '}<span className="text-violet-400">-d</span> <span className="text-slate-300">'&#123;</span>{'\n'}
                   {'    '}<span className="text-sky-300">"message"</span>: <span className="text-emerald-300">"Halo, tes koneksi chatbot!"</span>,{'\n'}
                   {'    '}<span className="text-sky-300">"sessionId"</span>: <span className="text-emerald-300">"6281234567890"</span>,{'\n'}
                   {'    '}<span className="text-sky-300">"user"</span>: &#123;{'\n'}
@@ -281,7 +281,7 @@ export default function QuickstartPage() {
                   {'      '}<span className="text-sky-300">"name"</span>: <span className="text-emerald-300">"Bilqis"</span>,{'\n'}
                   {'      '}<span className="text-sky-300">"email"</span>: <span className="text-emerald-300">"example@gmail.com"</span>{'\n'}
                   {'    '}&#125;{'\n'}
-                  {'  '}<span className="text-slate-300">'&#125;'</span>
+                  {'  '}<span className="text-slate-300">&#125;'</span>
                 </>
               )}
             </code>

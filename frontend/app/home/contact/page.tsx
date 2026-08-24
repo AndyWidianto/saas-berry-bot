@@ -69,7 +69,7 @@ export default function ContactPage() {
                     </h1>
 
                     <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-                        Have questions about workspace setup, RAG integration, or enterprise token plans? Drop us a message below.
+                        Have questions about workspace setup, Gemini RAG integration, or Pay As You Go token usage? Drop us a message below.
                     </p>
                 </div>
 
@@ -108,7 +108,7 @@ export default function ContactPage() {
                             </div>
                         </Card>
 
-                        <Card className="p-5 bg-card border border-border/60 hover:border-emerald-500/50 transition-colors group">
+                        {/* <Card className="p-5 bg-card border border-border/60 hover:border-emerald-500/50 transition-colors group">
                             <div className="flex items-start gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/20 transition-colors">
                                     <Clock className="w-5 h-5 text-emerald-500" />
@@ -119,7 +119,7 @@ export default function ContactPage() {
                                     <p className="text-[11px] text-muted-foreground/80 mt-1">Automated AI System active 24/7</p>
                                 </div>
                             </div>
-                        </Card>
+                        </Card> */}
 
                         {/* Showcase Small Badge */}
                         <motion.div

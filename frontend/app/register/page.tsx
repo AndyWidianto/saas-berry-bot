@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Bot, MessageSquare, Lock, Mail, User, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, ShieldAlert } from "lucide-react";
+import { Bot, MessageSquare, Lock, Mail, User, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import cn from "../components/ClassName";
 import useAxios from "@/lib/axios-service";
@@ -328,8 +328,7 @@ export default function RegisterPage() {
                     By registering, you agree to secure data tenant isolation standard rules.
                 </div>
             </div>
-
-            {/* Kanan: Branding Visual */}
+            
             <div className="hidden lg:flex flex-1 relative bg-muted/30 items-center justify-center p-12 overflow-hidden">
                 <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full filter blur-[80px]" />
                 <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full filter blur-[80px]" />
@@ -340,19 +339,23 @@ export default function RegisterPage() {
                         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                         className="bg-card border border-border/80 p-5 rounded-2xl shadow-xl max-w-sm mx-auto flex items-start gap-4 text-left"
                     >
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                            <Bot className="w-5 h-5 text-emerald-500" />
+                        <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center flex-shrink-0">
+                            <ShieldCheck className="w-5 h-5 text-sky-500" />
                         </div>
                         <div>
-                            <h4 className="font-semibold text-xs text-foreground">Double-Layered Security</h4>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">Encrypted password matching standards combined with isolated user secure PINs block unofficial hardware hacks.</p>
+                            <h4 className="font-semibold text-xs text-foreground">Multi-tenant Data Isolation</h4>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                Sesi WhatsApp, API Key, dan kuota token diisolasi secara aman dalam Workspace terpisah.
+                            </p>
                         </div>
                     </motion.div>
 
                     <div className="space-y-2">
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground">Deploy AI WhatsApp Solutions.</h1>
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                            Deploy AI WhatsApp Solutions.
+                        </h1>
                         <p className="text-xs text-muted-foreground px-6">
-                            Create workflows, sync knowledge bases using localized vectors or Gemini AI studio, and broadcast reliably without infrastructure constraints.
+                            Integrasikan instance WhatsApp via REST API, proses konteks tinggi dengan Gemini via Google AI Studio, dan kelola alur otomatisasi tanpa kerumitan infrastruktur.
                         </p>
                     </div>
                 </div>

@@ -6,7 +6,7 @@ export default function LogoApp({ collapsed = false, mobileOpen = false }: { mob
   return (
     <div className="flex items-center gap-1 min-w-0">
       <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
-        <img src="/apple-touch-icon.png" alt="logo berry" className="w-6 h-6 object-cover" />
+        <img src="/logo_berry.png" alt="logo berry" className="w-6 h-6 object-cover" />
       </div>
       <AnimatePresence>
         {(!collapsed || mobileOpen) && (

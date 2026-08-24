@@ -241,11 +241,6 @@ export class MessageProcessor extends WorkerHost {
                 }
             });
             const totalCost = totalCostChatting.totalCost + totalCostOutputChat.totalCost + (totalCostReWrite ? totalCostReWrite.totalCost : 0) + totalCostEmbedding.totalCost;
-            const newHistoryMessages = [...messages, newMessage, newMessageFromMe];
-            if (newHistoryMessages.length > 10) {
-                newHistoryMessages.slice(0, 2);
-            }
-            workspace.messages = newHistoryMessages;
             const responseTime = Date.now() - startTime;
             const [updateWorkspaceBalance] = await this.prisma.$transaction([
                 this.prisma.workspaceBalance.update({
@@ -293,7 +288,8 @@ export class MessageProcessor extends WorkerHost {
                 }),
             ]);
             workspace.workspaceBalances = updateWorkspaceBalance;
-            await this.cacheManager.set(workspaceId, workspace, 1000 * 60 * 5);
+            const newHistoryMessages = [...messages, newMessage, newMessageFromMe];
+            await this.chatbotService.updateWorkspaceCache(workspaceId, remote, workspace, newHistoryMessages);
         } catch (err) {
             console.error("Error: ", err);
             if (settings && Array.isArray(settings.event) && settings.event.includes("presence.update")) {

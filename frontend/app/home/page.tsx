@@ -8,7 +8,6 @@ import { Btn, LinkHref } from '../components/Button';
 import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
-    const router = useRouter();
     return (
         <div className="min-h-screen w-full bg-background text-foreground selection:bg-primary/20 font-sans relative overflow-x-hidden">
             <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-primary/10 rounded-full filter blur-[100px] -z-10" />
@@ -34,7 +33,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                    <LinkHref href='/login' variant="primary" icon={ArrowRight} className="w-full sm:w-auto h-10 px-6 font-semibold shadow-md shadow-primary/20">
+                    <LinkHref href='/register' variant="primary" icon={ArrowRight} className="w-full sm:w-auto h-10 px-6 font-semibold shadow-md shadow-primary/20">
                         Start Building Now
                     </LinkHref>
                     <a href='/docs' className="inline-flex items-center font-medium rounded-lg transition-colors duration-150 bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border w-full sm:w-auto h-10 px-6 font-medium bg-muted/30 border-border/60 hover:bg-muted/80">
@@ -52,7 +51,7 @@ export default function LandingPage() {
                     >
                         <div className="bg-muted/20 rounded-xl p-6 sm:p-8 border border-border/40 text-left flex flex-col sm:flex-row gap-6 items-center">
 
-                            {/* Floating Element Sama Seperti Form Login */}
+                            {/* Floating Element UI */}
                             <motion.div
                                 animate={{ y: [0, -8, 0] }}
                                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
@@ -63,8 +62,8 @@ export default function LandingPage() {
                                         <Bot className="w-4 h-4 text-violet-500" />
                                     </div>
                                     <div>
-                                        <h4 className="font-semibold text-xs text-foreground">RAG Engine Active</h4>
-                                        <p className="text-[10px] text-muted-foreground">Connected to Local LLM</p>
+                                        <h4 className="font-semibold text-xs text-foreground">Gemini Engine Active</h4>
+                                        <p className="text-[10px] text-muted-foreground">Google AI Studio Powered</p>
                                     </div>
                                 </div>
                                 <div className="space-y-2 mt-4">
@@ -76,7 +75,7 @@ export default function LandingPage() {
                             <div className="space-y-2">
                                 <h3 className="text-lg font-semibold tracking-tight text-foreground">Smart Automated Workspace</h3>
                                 <p className="text-xs text-muted-foreground leading-relaxed">
-                                    Your local LLMs & Official Meta APIs are seamlessly connected to provide 24/7 autonomous responses directly from your server.
+                                    Google AI Studio (Gemini) & WhatsApp REST API terintegrasi secara seamless untuk menyajikan respon otonom 24/7 langsung dari server Anda.
                                 </p>
                             </div>
                         </div>

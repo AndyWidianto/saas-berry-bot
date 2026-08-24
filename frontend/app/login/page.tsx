@@ -184,23 +184,27 @@ export default function LoginPage() {
 
                 <div className="max-w-md space-y-6 text-center z-10">
                     <motion.div
-                        animate={{ y: [0, -10, 0] }}
+                        animate={{ y: [0, -8, 0] }}
                         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                         className="bg-card border border-border/80 p-5 rounded-2xl shadow-xl max-w-sm mx-auto flex items-start gap-4 text-left"
                     >
-                        <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-                            <Bot className="w-5 h-5 text-violet-500" />
+                        <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center flex-shrink-0">
+                            <ShieldCheck className="w-5 h-5 text-sky-500" />
                         </div>
                         <div>
-                            <h4 className="font-semibold text-xs text-foreground">Smart Automated Workspace</h4>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">Your local LLMs & Official Meta APIs are seamlessly connected to provide 24/7 autonomous responses.</p>
+                            <h4 className="font-semibold text-xs text-foreground">Multi-tenant Data Isolation</h4>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                Sesi WhatsApp, API Key, dan kuota token diisolasi secara aman dalam Workspace terpisah.
+                            </p>
                         </div>
                     </motion.div>
 
                     <div className="space-y-2">
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground">Scale up WhatsApp with AI Automation.</h1>
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                            Deploy AI WhatsApp Solutions.
+                        </h1>
                         <p className="text-xs text-muted-foreground px-6">
-                            Isolate client workflows inside secured Workspaces, train RAG models with customized knowledge bases, and control your token budget smoothly.
+                            Integrasikan instance WhatsApp via REST API, proses konteks tinggi dengan Gemini via Google AI Studio, dan kelola alur otomatisasi tanpa kerumitan infrastruktur.
                         </p>
                     </div>
                 </div>

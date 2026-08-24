@@ -200,14 +200,14 @@ console.log(response.data);`;
             <code>
               {authMethod === 'curl' ? (
                 <>
-                  <span className="text-amber-400 font-semibold">curl</span> <span className="text-violet-400">-X GET</span> <span className="text-emerald-400">"{baseUrlMessageGateway}/messages"</span> \{'\n'}
+                  <span className="text-amber-400 font-semibold">curl</span> <span className="text-violet-400">-X GET</span> <span className="text-emerald-400">"{baseUrlMessageGateway}/YOUR_BERRY_SWEET_KEY_PREFIX/messages"</span> \{'\n'}
                   {'  '}<span className="text-violet-400">-H</span> <span className="text-sky-300">"apikey: YOUR_BERRY_SWEET_API_KEY"</span> \{'\n'}
                   {'  '}<span className="text-violet-400">-H</span> <span className="text-sky-300">"Content-Type: application/json"</span>
                 </>
               ) : (
                 <>
                   <span className="text-violet-400 font-semibold">import</span> <span className="text-slate-100">axios</span> <span className="text-violet-400 font-semibold">from</span> <span className="text-emerald-400">'axios'</span>;{'\n\n'}
-                  <span className="text-violet-400 font-semibold">const</span> <span className="text-sky-300">response</span> = <span className="text-violet-400 font-semibold">await</span> <span className="text-sky-300">axios</span>.<span className="text-amber-400">get</span>(<span className="text-emerald-400">'{baseUrlMessageGateway}/messages'</span>, &#123;{'\n'}
+                  <span className="text-violet-400 font-semibold">const</span> <span className="text-sky-300">response</span> = <span className="text-violet-400 font-semibold">await</span> <span className="text-sky-300">axios</span>.<span className="text-amber-400">get</span>(<span className="text-emerald-400">'{baseUrlMessageGateway}/YOUR_BERRY_SWEET_KEY_PREFIX/messages'</span>, &#123;{'\n'}
                   {'  '}<span className="text-violet-400">headers</span>: &#123;{'\n'}
                   {'    '}<span className="text-emerald-400">'apikey'</span>: <span className="text-sky-300">process</span>.<span className="text-sky-300">env</span>.<span className="text-amber-300">BERRY_SWEET_API_KEY</span>,{'\n'}
                   {'    '}<span className="text-emerald-400">'Content-Type'</span>: <span className="text-emerald-400">'application/json'</span>{'\n'}

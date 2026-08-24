@@ -75,31 +75,46 @@ export default function GetMessagesPage() {
   -H "x-prefix-key: bs_live"`;
 
     const jsonResponseCode = `{
-        "success": true,
-        "message": "Berhasil mengambil riwayat pesan",
-        "data": [
+        "success":true,
+        "data":[
             {
-                "id": "msg_987654321",
-                "workspaceId": "ws_123456",
-                "phone": "6281234567890",
-                "sender": "user",
-                "message": "Halo, apakah produk ini masih ready?",
-                "timestamp": "2026-08-17T14:30:00.000Z"
+                "id":"c75cf0c2-a50a-4715-8a5a-26bd5110f7fc",
+                "platform":"API",
+                "providerMessageId":null,
+                "fromMe":true,
+                "senderId":"1213131",
+                "senderName":"Sarah",
+                "content":"Halo, selamat siang! Senang sekalibisa bertemu dengan Anda hari ini. Ada yang bisa saya bantu atau ada pertanyaan yang ingin Anda ajukan terkait pengalaman atau kualifikasi saya? Semuanya akan mudah pada akhirnya.",
+                "type":"text",
+                "mediaUrl":null,
+                "workspaceId":"bfdc1eba-73cc-4a38-9ad0-603420d72fc5",
+                "contactId":null,
+                "status":"sent",
+                "createdAt":"2026-08-24T14:43:27.854Z",
+                "updatedAt":"2026-08-24T14:43:27.854Z"
             },
             {
-                "id": "msg_987654322",
-                "workspaceId": "ws_123456",
-                "phone": "6281234567890",
-                "sender": "bot",
-                "message": "Halo! Ya, produk kami selalu ready stock.",
-                "timestamp": "2026-08-17T14:30:02.000Z"
+                "id":"8ac97606-3493-493f-9f7b-ec96db835c2e",
+                "platform":"API",
+                "providerMessageId":null,
+                "fromMe":false,
+                "senderId":"berry_1213131",
+                "senderName":"Sarah",
+                "content":"Hallo, selamat siang",
+                "type":"text",
+                "mediaUrl":null,
+                "workspaceId":"bfdc1eba-73cc-4a38-9ad0-603420d72fc5",
+                "contactId":"d053a0c9-bd40-451d-a264-0bdc9f5ed645",
+                "status":"read",
+                "createdAt":"2026-08-24T14:43:23.470Z",
+                "updatedAt":"2026-08-24T14:43:23.470Z"
             }
         ],
+        "total": 2,
+        "totalPage":1,
         "pagination": {
-            "total": 2,
-            "page": 1,
-            "limit": 20,
-            "totalPages": 1
+            "nextCursor":null,
+            "hasMore":false
         }
     }`;
 

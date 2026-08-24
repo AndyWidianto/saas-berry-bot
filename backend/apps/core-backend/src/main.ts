@@ -6,11 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const whitelist = [
-    'http://localhost:5173',
-    process.env.BASE_URL_CLIENT,
-    'http://localhost:3000',
-    'http://localhost:8443',
-    'http://192.168.18.8:8443'
+    process.env.BASE_URL,
   ];
   const app = await NestFactory.create(AppModule);
   const config = new DocumentBuilder()
@@ -36,6 +32,6 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
     transform: true,
   }));
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT_BACKEND_CORE ?? 3000);
 }
 bootstrap();
