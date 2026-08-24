@@ -8,7 +8,7 @@ import * as crypto from "crypto";
 
 @Injectable()
 export class ApiKeyService {
-    private keyPrefix = "kurma_live.";
+    private keyPrefix = "berry_live.";
     constructor(
         private prisma: PrismaService
     ) { }

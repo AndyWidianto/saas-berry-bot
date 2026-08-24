@@ -2,7 +2,7 @@ import { PrismaService } from "@library/prisma/prisma.service";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { AIModel, Message, Prisma, Workspace, WorkspaceBalance } from "@prisma/client";
-import { WAMessage, WAPresence } from "@whiskeysockets/baileys";
+import { WAMessage, WAMessageKey, WAPresence } from "@whiskeysockets/baileys";
 import type { Cache } from "cache-manager";
 import type { KnowledgeChunk } from "@library/types";
 import { GeminiService } from "@library/agent/gemini.service";
@@ -13,14 +13,6 @@ import { ConfigService } from "@nestjs/config";
 import { Content } from "@google/generative-ai";
 
 
-
-type WorkspaceWithModels = Prisma.WorkspaceGetPayload<{
-    include: {
-        chatModel: true;
-        embeddingModel: true;
-        workspaceBalances: true;
-    };
-}>;
 @Injectable()
 export class WhatsappService implements OnModuleInit {
     private readonly logger = new Logger(WhatsappService.name);
@@ -75,12 +67,22 @@ export class WhatsappService implements OnModuleInit {
         }
     }
 
+    async readMessage(instanceName: string, data: WAMessageKey) {
+        const sock = CACHE_RAM_SOCK_SESSION[instanceName];
+        if (!sock) throw new NotFoundException(`Instance [${instanceName}] tidak aktif.`);
+        try {
+            sock.readMessages([data])
+        } catch (error) {
+            this.logger.error(`Gagal update status:`, error);
+        }
+    }
     async precenceUpdate(instanceName: string, status: WAPresence, to: string) {
         const sock = CACHE_RAM_SOCK_SESSION[instanceName];
         if (!sock) throw new NotFoundException(`Instance [${instanceName}] tidak aktif.`);
         const formattedPhone = to.includes('@s.whatsapp.net') ? to : `${to}@s.whatsapp.net`
         try {
-            sock.sendPresenceUpdate(status, formattedPhone);
+            await sock.sendPresenceUpdate(status, formattedPhone);
+            await new Promise((resolve) => setTimeout(resolve, 1000 * 3));
         } catch (error) {
             this.logger.error(`Gagal update status:`, error);
         }

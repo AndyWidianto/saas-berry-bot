@@ -3,7 +3,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from '../../lib/prisma/prisma.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { CloudinaryModule } from '../../lib/cloudinary/cloudinary.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import KeyvRedis from '@keyv/redis';
 import { Keyv } from 'keyv';
@@ -15,20 +14,23 @@ import { MessageModule } from './message/message.module';
 import { BillingModule } from '@library/billing/billing.module';
 import { NodemailerModule } from '@library/nodemailer/nodemailer.module';
 import { QueueChatbotModule } from './queue-chatbot/queue-chatbot.module';
+import { EmbeddingModule } from '@library/shared/embedding.module';
+import { AgentModule } from '@library/agent/agent.module';
 
 @Module({
   imports: [
     PrismaModule,
     ChatbotModule,
+    AgentModule,
     MessageModule,
     BillingModule,
+    EmbeddingModule,
     NodemailerModule,
     QueueChatbotModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ".env"
     }),
-    CloudinaryModule,
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],

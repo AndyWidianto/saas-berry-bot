@@ -7,4 +7,5 @@ allowBuilds:
   msgpackr-extract: false
   prisma: false
   protobufjs: false
+  puppeteer: set this to true or false
   unrs-resolver: false

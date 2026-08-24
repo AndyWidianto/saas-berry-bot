@@ -4,7 +4,7 @@ import { Injectable, NestMiddleware } from "@nestjs/common";
 @Injectable()
 export class CorsBypassMiddleware implements NestMiddleware {
     use(req: any, res: any, next: (error?: any) => void) {
-        if (req.path.startsWith('/api/chatbot')) {
+        if (req.path.startsWith('/api/bot')) {
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
             res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');

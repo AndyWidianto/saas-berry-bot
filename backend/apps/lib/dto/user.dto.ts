@@ -51,10 +51,6 @@ export class UpdateUserDto extends PartialType(OmitType(CreateUserDto, ["passwor
 
 export class ResetPasswordDto {
     @IsNotEmpty({ message: 'Password tidak boleh kosong' })
-    @MinLength(8, { message: 'Password minimal harus 8 karakter' })
-    @Matches(/[A-Z]/, {
-        message: 'Password harus mengandung setidaknya satu huruf besar'
-    })
     password: string;
 
     @IsNotEmpty({ message: 'Password baru tidak boleh kosong' })

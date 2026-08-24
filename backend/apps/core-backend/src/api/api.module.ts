@@ -13,6 +13,7 @@ import { BillingModule } from "@library/billing/billing.module";
 import { ApiKeyModule } from "./apikeys/apikey.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { ContactModule } from "./contact/contact.module";
+import { NotificationModule } from "./notification/notification.module";
 
 
 
@@ -31,7 +32,8 @@ import { ContactModule } from "./contact/contact.module";
         BillingModule,
         ApiKeyModule,
         DashboardModule,
-        ContactModule
+        ContactModule,
+        NotificationModule
     ]
 })
 export class ApiModule {}

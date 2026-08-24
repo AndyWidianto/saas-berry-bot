@@ -9,10 +9,15 @@ export interface Workspace {
     ownerId: string;
     rewrite: boolean;
     isAiActive: boolean;
+    greetingText: string | null;
+    systemRules: string | null;
     activeChatModelId: string;
     chunkSize: number;
     chunkOverlap: number;
     activeEmbeddingModelId: string;
+    timezone?: string;
+    workingHoursEnabled?: boolean;
+    workingHours?: Record<Days, WorkingHourDetail>;
     notificationSettings: Record<NotificationSettingType, any>
 }
 
@@ -39,12 +44,24 @@ export interface WorkspaceMember {
         profileUrl?: string | null;
     }
 }
+
+export interface WorkingHourDetail {
+  enabled: boolean;
+  start: string; // "08:00"
+  end: string; // "17:00"
+}
+export type Days = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 export interface UpdateWorkspace {
     name?: string;
     slug?: string;
     isAiActive?: boolean;
     rewrite?: boolean;
     activeChatModelId?: string;
+    greetingText?: string;
+    systemRules?: string;
+    timezone?: string;
+    workingHoursEnabled?: boolean;
     activeEmbeddingModelId?: string;
+    workingHours?: Record<Days, WorkingHourDetail>;
     notificationSettings?: Partial<Record<NotificationSettingType, any>>;
 }

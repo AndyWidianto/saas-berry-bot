@@ -4,6 +4,9 @@ export * from "./balance";
 export * from "./workspace";
 export * from "./knowledge";
 export * from "./dashboard";
+export * from "./contact";
+export * from "./working-hour";
+export * from "./notification";
 
 
 export interface ResponseApi {

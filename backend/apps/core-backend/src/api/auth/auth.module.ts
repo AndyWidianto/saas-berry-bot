@@ -7,9 +7,10 @@ import { ConfigModule } from "@nestjs/config";
 import { PassportModule } from "@nestjs/passport";
 import { AccessTokenStrategy } from "../../../../lib/guards/access.strategy";
 import { RefreshTokenStrategy } from "../../../../lib/guards/refresh.strategy";
+import { GoogleStrategy } from "@library/guards/google.strategy";
 
 @Module({
-    providers: [AuthService, TokenService, AccessTokenStrategy, RefreshTokenStrategy],
+    providers: [AuthService, TokenService, AccessTokenStrategy, RefreshTokenStrategy, GoogleStrategy],
     controllers: [AuthController],
     imports: [
         JwtModule.register({}),

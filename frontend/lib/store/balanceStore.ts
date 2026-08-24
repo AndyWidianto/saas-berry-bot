@@ -1,9 +1,10 @@
 import { create } from "zustand";
+import { WorkspaceBalance } from "../types";
 
 
 interface BalanceStore {
-  balance: number | null;
-  setBalance: (newBalance: number) => void;
+  balance: WorkspaceBalance | null;
+  setBalance: (newBalance: WorkspaceBalance) => void;
 }
 
 export const useBalanceStore = create<BalanceStore>((set) => ({

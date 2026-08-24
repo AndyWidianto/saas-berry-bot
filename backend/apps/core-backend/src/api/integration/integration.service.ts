@@ -2,10 +2,11 @@ import { CreateIntegrationDto, UpdateIntegrationDto } from "@library/dto/integra
 import { PrismaService } from "@library/prisma/prisma.service";
 import { PayloadJWT } from "@library/types";
 import { WhatsappGatewayService } from "@library/whatsapp.gateway/whatsapp.gateway.service";
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PlatformType, Prisma, StatusIntegration } from "@prisma/client";
 import axios from "axios";
+import { WorkspaceService } from "../workspace/workspace.service";
 
 
 
@@ -14,10 +15,24 @@ export class IntegrationService {
     constructor(
         private prisma: PrismaService,
         private configService: ConfigService,
-        private whatsappGatewayService: WhatsappGatewayService
+        private whatsappGatewayService: WhatsappGatewayService,
+        private workspaceService: WorkspaceService
     ) { }
 
-    async create(workspaceId: string, data: CreateIntegrationDto) {
+    async validateRole(user: PayloadJWT, workspaceId: string) {
+        const existing = await this.prisma.workspaceMember.findFirst({
+            where: { userId: user.id, workspaceId }
+        });
+        if (!existing) {
+            throw new ForbiddenException("Akses ditolak. anda bukan bagian dari workspace ini.")
+        }
+        if (existing.role === "MEMBER") {
+            throw new ForbiddenException("Akses ditolak. Role member tidak diizinkan untuk merubah data.");
+        }
+        return existing;
+    }
+    async create(user: PayloadJWT, workspaceId: string, data: CreateIntegrationDto) {
+        const workspace = await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
         let dataToSave = {
             name: data.name,
             instanceName: `${workspaceId}-${data.platform}`,
@@ -29,13 +44,13 @@ export class IntegrationService {
             workspaceId: workspaceId
         }
         const existing = await this.prisma.integration.findFirst({
-            where: { instanceName: dataToSave.instanceName }
+            where: { instanceName: dataToSave.instanceName, workspaceId }
         });
         if (existing) {
-            throw new NotFoundException("Whatsapp Bailyes is already");
+            throw new NotFoundException("WhatsApp (Unofficial) is already");
         }
 
-        const validPlatforms = ["WHATSAPP_BAYLIES", "EMAIL"];
+        const validPlatforms = ["WHATSAPP_BAYLIES", "EMAIL", "WHATSAPP"];
         if (!validPlatforms.includes(data.platform)) {
             throw new BadRequestException("platform is not found");
         }
@@ -45,17 +60,40 @@ export class IntegrationService {
         if (data.platform === "EMAIL") {
             dataToSave.instanceName = `${workspaceId}-EMAIL`;
         }
+        if (data.platform === "WHATSAPP") {
+            dataToSave.instanceName = `${workspace.name.split(" ").join("").toLowerCase()}-${data.platform}`;
+        }
         const integration = await this.prisma.integration.create({
             data: dataToSave
         });
         return {
-            message: "success create Whatsapp baylies",
+            message: `Berhasil membuat integration ke ${data.platform === "WHATSAPP_BAYLIES" ? 'WhatsApp (Unofficial)' : data.platform}`,
             data: integration
         }
     }
 
-    async getAll(workspaceId: string, search?: string, lastId?: string) {
+    async deleteWhatsappNonofficial(user: PayloadJWT, workspaceId: string, id: string) {
+        const member = await this.validateRole(user, workspaceId);
 
+        const existing = await this.prisma.integration.findUnique({
+            where: { id }
+        });
+        if (!existing) {
+            throw new NotFoundException("Device not found");
+        }
+        if (existing.platform === "WHATSAPP_BAYLIES") {
+            await this.whatsappGatewayService.deleteWhatsApp(workspaceId);
+        }
+        await this.prisma.integration.delete({
+            where: { id }
+        });
+        return {
+            message: `Berhasil hapus device ${existing.platform === "WHATSAPP_BAYLIES" ? "WhatsApp (Nonofficial)" : existing.platform}`
+        }
+    }
+
+    async getAll(user: PayloadJWT, workspaceId: string, search?: string, lastId?: string) {
+        await this.validateRole(user, workspaceId);
         const query: Prisma.IntegrationFindManyArgs = {
             where: {
                 ...search ? {
@@ -86,7 +124,8 @@ export class IntegrationService {
         }
     }
 
-    async update(workspaceId: string, paltform: PlatformType, data: UpdateIntegrationDto) {
+    async update(user: PayloadJWT, workspaceId: string, paltform: PlatformType, data: UpdateIntegrationDto) {
+        await this.validateRole(user, workspaceId);
         const existing = await this.prisma.integration.findFirst({
             where: {
                 workspaceId: workspaceId,
@@ -104,5 +143,9 @@ export class IntegrationService {
             message: "Update successfully",
             data: updateIntegration
         }
+    }
+    async getQrcodeWhatsapp(user: PayloadJWT, workspaceId: string) {
+        await this.validateRole(user, workspaceId);
+        return await this.whatsappGatewayService.getQrcodeWhatsapp(workspaceId);
     }
 }

@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { MessageService } from "./message.service";
 import { AuthGuard } from "@nestjs/passport";
 import { CreateMessageDto, SendMessageDto } from "../../../../lib/dto/message.dto";
+import { SkipThrottle } from "@nestjs/throttler";
 
 
 @Controller("api/:workspaceId/messages")
@@ -14,6 +15,7 @@ export class MessageController {
     //     return this.service.create({...body, fromMe: true });
     // }
 
+    @SkipThrottle()
     @Get("stats")
     @UseGuards(AuthGuard("jwt"))
     async getStats() {

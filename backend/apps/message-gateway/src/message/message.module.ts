@@ -13,7 +13,10 @@ import { GeminiService } from "@library/agent/gemini.service";
         }),
         BullModule.registerQueue({
             name: "whatsapp-outgoing-queue"
+        }),
+        BullModule.registerQueue({
+            name: "notification-queue"
         })
     ]
 })
-export class MessageModule {}
+export class MessageModule { }

@@ -31,7 +31,6 @@ export class WhatsappGatewayService implements OnModuleInit {
                 }
             });
             const result = res.data;
-            console.log(result);
             return result;
         } catch (err) {
             if (axios.isAxiosError(err)) {
@@ -55,7 +54,7 @@ export class WhatsappGatewayService implements OnModuleInit {
                 if (err.status === 500) {
                     throw new InternalServerErrorException(err);
                 }
-                const message = err.response?.data.message || "Failed to create";
+                const message = err.response?.data.message || "Gagal terhubung ke WhatsApp (Unofficial)";
                 throw new HttpException(message, err.status || 400);
             }
         }
@@ -80,6 +79,31 @@ export class WhatsappGatewayService implements OnModuleInit {
                 const message = err.response?.data.message;
                 if (statusCode === 404) {
                     throw new NotFoundException(message || "Qrcode not found");
+                }
+            }
+            throw new InternalServerErrorException(err);
+        }
+    }
+
+    async deleteWhatsApp(workspaceId: string) {
+        try {
+            const res = await axios.delete(`${this.baseUrl}/${workspaceId}/whatsapp/${workspaceId}-WHATSAPP_BAYLIES`, {
+                headers: {
+                    "secret-key": this.secretKey
+                }
+            });
+            const data = res.data;
+            return {
+                message: "successfully",
+                data: data
+            }
+        } catch (err) {
+            console.error(err);
+            if (axios.isAxiosError(err)) {
+                const statusCode = err.response?.status;
+                const message = err.response?.data.message;
+                if (statusCode === 404) {
+                    throw new NotFoundException(message || "Gagal menghapus WhatsApp (Unofficial)");
                 }
             }
             throw new InternalServerErrorException(err);

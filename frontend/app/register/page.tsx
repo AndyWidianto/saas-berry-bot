@@ -4,6 +4,11 @@ import React, { useState } from "react";
 import { Bot, MessageSquare, Lock, Mail, User, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, ShieldAlert } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import cn from "../components/ClassName";
+import useAxios from "@/lib/axios-service";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import axios from "axios";
+import LogoApp from "../components/LogoApp";
 
 const Btn = ({ children, variant = "primary", size = "md", onClick, className, icon: Icon, type = "button", disabled }: {
     children?: React.ReactNode; variant?: "primary" | "secondary" | "ghost" | "danger";
@@ -25,10 +30,11 @@ const Btn = ({ children, variant = "primary", size = "md", onClick, className, i
 };
 
 export default function RegisterPage() {
+    const { AxiosPublic } = useAxios();
     const [step, setStep] = useState<1 | 2>(1);
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    
+
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -36,17 +42,35 @@ export default function RegisterPage() {
         pin: ["", "", "", "", "", ""] // Array untuk 6 digit PIN
     });
 
-    // Handle navigasi antar langkah
-    const nextStep = (e: React.FormEvent) => {
+    const router = useRouter();
+
+    const nextStep = async (e: React.FormEvent) => {
         e.preventDefault();
-        setStep(2);
+        setIsLoading(true);
+        try {
+            const payload = {
+                name: formData.name,
+                email: formData.email,
+                password: formData.password
+            }
+            await AxiosPublic.post("/auth/code-pin", payload);
+            setStep(2);
+        } catch (err) {
+            if (axios.isAxiosError(err)) {
+                const message = err.response?.data.message;
+                if (message) toast.error(message);
+            }
+            setStep(1);
+            console.error("Fetch error: ", err);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const prevStep = () => {
         setStep(1);
     };
 
-    // Handle Input PIN otomatis geser ke kolom berikutnya
     const handlePinChange = (element: HTMLInputElement, index: number) => {
         if (isNaN(Number(element.value))) return false;
 
@@ -54,13 +78,11 @@ export default function RegisterPage() {
         newPin[index] = element.value;
         setFormData({ ...formData, pin: newPin });
 
-        // Fokus pindah ke kanan jika terisi
         if (element.value !== "" && element.nextSibling) {
             (element.nextSibling as HTMLInputElement).focus();
         }
     };
 
-    // Handle hapus PIN (Backspace) pindah ke kolom kiri
     const handlePinKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
         if (e.key === "Backspace" && formData.pin[index] === "" && e.currentTarget.previousSibling) {
             (e.currentTarget.previousSibling as HTMLInputElement).focus();
@@ -76,61 +98,110 @@ export default function RegisterPage() {
         }
 
         setIsLoading(true);
-        
-        // Payload siap kirim ke Backend (NestJS / Golang) Anda
-        const payload = {
-            name: formData.name,
-            email: formData.email,
-            password: formData.password,
-            securityPin: pinString
-        };
-
-        setTimeout(() => {
+        try {
+            const payload = {
+                name: formData.name,
+                email: formData.email,
+                password: formData.password,
+                codePin: formData.pin.join("")
+            }
+            const res = await AxiosPublic.post("/auth/register", payload);
+            const data = res.data;
+            console.log(data);
+            toast.success("Register successfully");
+            router.push(`/dashboard`);
+        } catch (err) {
+            if (axios.isAxiosError(err)) {
+                const message = err.response?.data.message;
+                if (message) toast.error(message);
+            }
+            console.error("Fetch error: ", err);
+        } finally {
             setIsLoading(false);
-            alert("Registration Success! Account created securely.");
-            console.log("Registered Data Setup:", payload);
-        }, 1500);
+        }
+    };
+
+    const handleOAuthLogin = (provider: 'google' | 'github') => {
+        window.location.href = `http://localhost:5000/api/auth/${provider}`;
     };
 
     return (
         <div className="min-h-screen w-full flex bg-background text-foreground overflow-hidden">
-            
-            {/* Kiri: Kolom Form Kontainer */}
             <div className="w-full lg:w-[480px] flex flex-col justify-between p-6 sm:p-10 z-10 bg-background border-r border-border/40">
-                
-                {/* Logo Top */}
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                            <MessageSquare className="w-5 h-5 text-primary-foreground" />
-                        </div>
-                        <span className="font-semibold text-base tracking-tight text-foreground">Evolve WA</span>
-                    </div>
-                    {/* Step Indicator */}
+                    <LogoApp />
                     <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
                         Step {step} of 2
                     </span>
                 </div>
 
                 {/* Form Multi-Step Area */}
-                <div className="w-full max-w-sm mx-auto my-auto py-8">
+                <div className="w-full max-w-sm mx-auto my-auto py-6">
                     <AnimatePresence mode="wait">
                         {step === 1 ? (
-                            /* --- LANGKAH 1: DATA DIRI --- */
                             <motion.div
                                 key="step1"
                                 initial={{ opacity: 0, x: -16 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: 16 }}
                                 transition={{ duration: 0.2 }}
-                                className="space-y-5"
+                                className="space-y-4"
                             >
                                 <div className="space-y-1">
                                     <h2 className="text-xl font-bold tracking-tight text-foreground">Create Account</h2>
                                     <p className="text-xs text-muted-foreground">Get started with your dedicated isolated workspace.</p>
                                 </div>
 
-                                <form onSubmit={nextStep} className="space-y-4">
+                                {/* Tombol OAuth (Google & GitHub) */}
+                                <div className="grid grid-cols-1 gap-3 pt-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOAuthLogin("google")}
+                                        className="flex items-center justify-center gap-2 h-9 px-3 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors shadow-sm"
+                                    >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24">
+                                            <path
+                                                fill="#4285F4"
+                                                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                                            />
+                                            <path
+                                                fill="#34A853"
+                                                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                                            />
+                                            <path
+                                                fill="#FBBC05"
+                                                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                                            />
+                                            <path
+                                                fill="#EA4335"
+                                                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                                            />
+                                        </svg>
+                                        Google
+                                    </button>
+                                    {/* <button
+                                        type="button"
+                                        onClick={() => handleOAuthLogin("github")}
+                                        className="flex items-center justify-center gap-2 h-9 px-3 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors shadow-sm"
+                                    >
+                                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                                        </svg>
+                                        GitHub
+                                    </button> */}
+                                </div>
+
+                                {/* Pembatas Line OR */}
+                                <div className="relative flex items-center justify-center my-1">
+                                    <div className="absolute inset-0 flex items-center">
+                                        <div className="w-full border-t border-border/60" />
+                                    </div>
+                                    <span className="relative bg-background px-2 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                                        Or sign up with email
+                                    </span>
+                                </div>
+
+                                <form onSubmit={nextStep} className="space-y-3.5">
                                     <div>
                                         <label className="block text-xs font-medium text-muted-foreground mb-1.5">Full Name</label>
                                         <div className="relative flex items-center">
@@ -173,13 +244,16 @@ export default function RegisterPage() {
                                         </div>
                                     </div>
 
-                                    <Btn type="submit" variant="primary" icon={ArrowRight} className="w-full mt-2 font-semibold">
-                                        Continue to Security
-                                    </Btn>
+                                    <button
+                                        type="submit"
+                                        className="w-full h-9 mt-1 flex items-center justify-center gap-2 font-semibold text-xs rounded-lg bg-primary text-primary-foreground shadow-md shadow-primary/10 hover:bg-primary/90 transition-colors"
+                                    >
+                                        <span>{isLoading ? "Processing..." : "Continue to Security"}</span>
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    </button>
                                 </form>
                             </motion.div>
                         ) : (
-                            /* --- LANGKAH 2: SETUP SECURITY PIN --- */
                             <motion.div
                                 key="step2"
                                 initial={{ opacity: 0, x: 16 }}
@@ -196,7 +270,7 @@ export default function RegisterPage() {
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     {/* Input PIN 6 Kolom */}
                                     <div className="flex justify-between gap-2">
-                                        {formData.pin.map((data, index) => (
+                                        {formData.pin.map((data: string, index: number) => (
                                             <input
                                                 key={index}
                                                 type="text"
@@ -216,12 +290,22 @@ export default function RegisterPage() {
 
                                     {/* Aksi Tombol */}
                                     <div className="flex items-center gap-3">
-                                        <Btn variant="secondary" onClick={prevStep} icon={ArrowLeft} className="flex-1 justify-center">
-                                            Back
-                                        </Btn>
-                                        <Btn type="submit" variant="primary" disabled={isLoading} icon={CheckCircle2} className="flex-1 justify-center font-semibold">
-                                            {isLoading ? "Processing..." : "Finish Register"}
-                                        </Btn>
+                                        <button
+                                            type="button"
+                                            onClick={prevStep}
+                                            className="flex-1 h-9 flex items-center justify-center gap-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors"
+                                        >
+                                            <ArrowLeft className="w-3.5 h-3.5" />
+                                            <span>Back</span>
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isLoading}
+                                            className="flex-1 h-9 flex items-center justify-center gap-2 font-semibold text-xs rounded-lg bg-primary text-primary-foreground shadow-md shadow-primary/10 hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                                        >
+                                            <span>{isLoading ? "Processing..." : "Finish Register"}</span>
+                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                        </button>
                                     </div>
                                 </form>
                             </motion.div>
@@ -230,9 +314,9 @@ export default function RegisterPage() {
 
                     {/* Link Login */}
                     {step === 1 && (
-                        <div className="text-center text-xs text-muted-foreground mt-5">
+                        <div className="text-center text-xs text-muted-foreground mt-4">
                             Already have an account?{" "}
-                            <a href="#" className="text-primary font-semibold hover:underline">
+                            <a href="/login" className="text-primary font-semibold hover:underline">
                                 Sign In
                             </a>
                         </div>

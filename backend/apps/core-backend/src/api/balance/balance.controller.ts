@@ -1,6 +1,8 @@
-import { Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { BalanceService } from "./balance.service";
 import { AuthGuard } from "@nestjs/passport";
+import type { RequestAndPayload } from "@library/types";
+import { SkipThrottle } from "@nestjs/throttler";
 
 
 
@@ -13,10 +15,11 @@ export class BalanceController {
     @UseGuards(AuthGuard("jwt"))
     async topup() {}
 
+    @SkipThrottle()
     @Get()
     @UseGuards(AuthGuard("jwt"))
-    async getFirst(@Param("workspaceId") id: string) {
-        return await this.service.getFirst(id);
+    async getFirst(@Param("workspaceId") id: string, @Req() req: RequestAndPayload) {
+        return await this.service.getFirst(req.user, id);
     }
 
 }

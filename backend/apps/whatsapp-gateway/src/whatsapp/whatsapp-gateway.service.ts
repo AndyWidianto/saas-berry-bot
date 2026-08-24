@@ -101,7 +101,6 @@ export class WhatsappGatewayService implements OnModuleInit {
             let phoneNumber: string | null = null;
             if (qr) {
                 this.logger.log(`[${instanceName}] QR Code baru digenerate, perbarui di RAM.`);
-                qrcode.generate(qr, { small: true });
                 CACHE_RAM_QR_CODE[instanceName] = qr;
                status = "CONNECTING";
             }
@@ -140,7 +139,7 @@ export class WhatsappGatewayService implements OnModuleInit {
                 }
                 status = "DISCONNECTED";
             }
-            if (this.statusInstance[instanceName] !== status) {
+            if ((this.statusInstance[instanceName] !== status) && (status !== "CONNECTING")) {
                 await this.incomingQueue.add("update-integration", { instanceName, phoneNumber, status }, { removeOnComplete: true });
             }
         });
@@ -148,34 +147,24 @@ export class WhatsappGatewayService implements OnModuleInit {
         // event pesan masuk
         sock.ev.on('messages.upsert', async (m) => {
             if (m.type !== 'notify') return;
-            if (settings && !settings.event?.includes("messages.upsert")) return;
-            if (settings && Array.isArray(settings.event) && !settings.event.includes("messages.upsert")) return;
             for (const msg of m.messages) {
                 if (msg.key.remoteJid === 'status@broadcast') return;
                 if (!msg.key.fromMe) {
+                    console.log(msg);
                     const remote = msg.key.remoteJidAlt;
-                    const isBlocked = await this.cacheManager.get<boolean>(`block-${remote}`);
-                    if (isBlocked) return;
-
-                    if (settings && settings.autoRead) {
-                        const keyToRead = {
-                            remoteJid: remote,
-                            id: msg.key.id,
-                            participant: msg.key.participant
-                        };
-                        sock.readMessages([keyToRead]);
-                    }
+                    // const isBlocked = await this.cacheManager.get<boolean>(`block-${remote}`);
+                    // if (isBlocked) return;
+                    
                     await this.incomingQueue.add("process-incoming-msg", {
                         instanceName,
                         workspaceId,
                         to: remote,
-                        message: msg
+                        message: msg,
+                        settings: settings
                     }, {
                         removeOnComplete: true,
                         attempts: 3
                     });
-                    await sock.sendPresenceUpdate("composing", remote)
-                    await new Promise((resolve) => setTimeout(resolve, 1000 * 3));
                     //await sock.sendPresenceUpdate("paused", remote);
                 }
             }
@@ -192,9 +181,9 @@ export class WhatsappGatewayService implements OnModuleInit {
         // sock.ev.on('chats.update', (m) => {
         //     console.log('Chats Update:', m); // Debug log untuk melihat detail pembaruan obrolan
         // });
-        sock.ev.on('contacts.update', (m) => {
-            console.log('Contacts Update:', m); // Debug log untuk melihat detail pembaruan kontak
-        });
+        // sock.ev.on('contacts.update', (m) => {
+        //     console.log('Contacts Update:', m); // Debug log untuk melihat detail pembaruan kontak
+        // });
     }
 
     validateSecret(secret: string) {

@@ -7,6 +7,7 @@ export interface Knowledge {
     updatedAt: string;
     workspaceId: string;
     status: StatusKnowledge;
+    modelName: string;
     type: string;
     totalChunk: number;
     size: number;

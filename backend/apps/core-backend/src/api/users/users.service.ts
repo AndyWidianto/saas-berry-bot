@@ -1,8 +1,9 @@
+import { ResetPasswordDto } from "@library/dto/user.dto";
 import { PrismaService } from "../../../../lib/prisma/prisma.service";
-import { supabaseClient } from "../../../../lib/supabase";
 import { CreateUser, PayloadJWT, PayloadUser, ResetPassword } from "../../../../lib/types";
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import bcrypt from "bcryptjs";
+import { StorageService } from "@library/storage/storage.service";
 
 
 
@@ -11,7 +12,7 @@ import bcrypt from "bcryptjs";
 
 @Injectable()
 export class UsersService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private storage: StorageService) { }
 
 
     async findOne(id: string) {
@@ -43,7 +44,7 @@ export class UsersService {
         })
     }
 
-    async resetPassword(id: string, data: ResetPassword) {
+    async resetPassword(id: string, data: ResetPasswordDto) {
         const user = await this.findOne(id);
         const passwordValid = await bcrypt.compare(data.password, user.password);
         if (!passwordValid) {
@@ -58,7 +59,10 @@ export class UsersService {
         });
         return { message: "Update password successfully" }
     }
-    async getStats() {
+    async getStats(user: PayloadJWT) {
+        if (user.role === "user" || user.role === "review") {
+            throw new ForbiddenException("Akses ditolak. Role " + user.role + ' tidak diizinkan untuk mengakses ini.');
+        }
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
         const [active, total] = await Promise.all([
@@ -104,11 +108,20 @@ export class UsersService {
         }
         const existing = await this.findOne(user.id);
 
+        try {
+            if (existing.thumbnail) {
+                await this.storage.deleteFile(existing.thumbnail);
+            }
+        } catch (err) {
+            await this.storage.deleteFile(`${file.filename}`);
+            console.error("Error: ", err);
+            throw err;
+        }
         const updateUser = await this.prisma.user.update({
             where: { id: user.id },
             data: {
                 profileUrl: `${url}/images/${file.filename}`,
-                thumbnail: `images/${file.filename}`,
+                thumbnail: `${file.filename}`,
             },
             select: {
                 id: true,
@@ -130,9 +143,11 @@ export class UsersService {
         if (!existing) {
             throw new NotFoundException("User not found");
         }
-        if (existing.role !== "super_admin") {
-            throw new BadRequestException("Anda tidak diizinkan untuk membuat user!");
-        }
+        await this.prisma.workspace.deleteMany({
+            where: {
+                ownerId: existing.id
+            }
+        })
         await this.prisma.user.delete({
             where: {
                 id: id

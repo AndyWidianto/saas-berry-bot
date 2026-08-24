@@ -1,57 +1,135 @@
+import { Days } from "@library/types";
 import { RoleWorkspaceMember } from "@prisma/client";
-import { IsEmail, IsNotEmpty, IsOptional } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsBoolean, IsEmail, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from "class-validator";
 
 
 export class CreateWorkspaceDto {
-    @IsNotEmpty({ message: "field name is required" })
-    name: string;
-
-    @IsOptional()
-    slug: string;
+  @IsNotEmpty({ message: "field name is required" })
+  name: string;
 }
 
 
 export type NotificationSettingType = "team_update" | "billing_alert" | "ai_escalation";
+
+export class WorkingHourDetailDto {
+  @IsBoolean()
+  enabled: boolean;
+
+  @IsString()
+  start: string; // "08:00"
+
+  @IsString()
+  end: string; // "17:00"
+}
+
+export class WeeklyWorkingHoursDto {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => WorkingHourDetailDto)
+  monday?: WorkingHourDetailDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => WorkingHourDetailDto)
+  tuesday?: WorkingHourDetailDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => WorkingHourDetailDto)
+  wednesday?: WorkingHourDetailDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => WorkingHourDetailDto)
+  thursday?: WorkingHourDetailDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => WorkingHourDetailDto)
+  friday?: WorkingHourDetailDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => WorkingHourDetailDto)
+  saturday?: WorkingHourDetailDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => WorkingHourDetailDto)
+  sunday?: WorkingHourDetailDto;
+}
+
 export class UpdateWorkspaceDto {
-    @IsOptional()
-    name?: string;
+  @IsOptional()
+  @IsString()
+  name?: string;
 
-    @IsOptional()
-    slug?: string;
+  @IsOptional()
+  @IsString()
+  slug?: string;
 
-    @IsOptional()
-    isAiActive: boolean;
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  isAiActive?: boolean;
 
-    @IsOptional()
-    rewrite: boolean;
-    @IsOptional()
-    systemRules: string;
-    @IsOptional()
-    greetingText: string
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  rewrite?: boolean;
 
-    @IsOptional()
-    activeChatModelId?: string;
+  @IsOptional()
+  @IsString()
+  systemRules?: string;
 
-    @IsOptional()
-    activeEmbeddingModelId?: string;
+  @IsOptional()
+  @IsString()
+  greetingText?: string;
 
-    @IsOptional()
-    notificationSettings: Record<NotificationSettingType, any>;
+  @IsOptional()
+  @IsString()
+  // @IsUUID() // Buka komentar jika ID menggunakan UUID/CUID
+  activeChatModelId?: string;
+
+  @IsOptional()
+  @IsString()
+  // @IsUUID() // Buka komentar jika ID menggunakan UUID/CUID
+  activeEmbeddingModelId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  workingHoursEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  timezone?: string; // e.g. "Asia/Jakarta"
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => WeeklyWorkingHoursDto) //  Gunakan class baru ini
+  workingHours?: WeeklyWorkingHoursDto;
+
+  @IsOptional()
+  @IsObject()
+  notificationSettings?: Record<NotificationSettingType, any>;
 }
 
 export class CreateMemberDto {
-    @IsNotEmpty({ message: "email is required" })
-    @IsEmail()
-    email: string;
+  @IsNotEmpty({ message: "email is required" })
+  @IsEmail()
+  email: string;
 
-    @IsNotEmpty({ message: "role is required" })
-    role: RoleWorkspaceMember;
+  @IsNotEmpty({ message: "role is required" })
+  role: RoleWorkspaceMember;
 }
 
 export class CreateApiKeyDto {
-    @IsNotEmpty({ message: "name is required" })
-    name: string;
+  @IsNotEmpty({ message: "name is required" })
+  name: string;
 
-    // @IsNotEmpty({ message: "permission is required" })
-    // permission: string[];
+  // @IsNotEmpty({ message: "permission is required" })
+  // permission: string[];
 }

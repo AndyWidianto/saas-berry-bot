@@ -24,18 +24,21 @@ export class WhatsappMessageProcessor extends WorkerHost implements OnModuleInit
 
     async process(job: Job, token?: string): Promise<any> {
         this.logger.log("Memproses pesan masuk");
+        const data = job.data;
         try {
             switch (job.name) {
                 case "send-message":
-                    const data: SendMessageDto = job.data;
+                    const { instanceName, target, message } = job.data as SendMessageDto;
                     if (data.type === "text") {
-                        await this.whatsappService.sendMessage(this.secretKey, { instanceName: data.instanceName, to: data.target, text: data.message });
+                        await this.whatsappService.sendMessage(this.secretKey, { instanceName: instanceName, to: target, text: message });
                     }
                     break;
-                case "precence-update":
-                    const dataPrecence: { instanceName: string, status: WAPresence, to: string } = job.data;
-                    await this.whatsappService.precenceUpdate(dataPrecence.instanceName, dataPrecence.status, dataPrecence.to);
+                case "presence-update":
+                    const dataPrecence: { instanceName: string, status: WAPresence, target: string } = job.data;
+                    await this.whatsappService.precenceUpdate(dataPrecence.instanceName, dataPrecence.status, dataPrecence.target);
                     break;
+                case "read-message": 
+                    await this.whatsappService.readMessage(data.instanceName, data.data);
                 default:
                     break;
             }

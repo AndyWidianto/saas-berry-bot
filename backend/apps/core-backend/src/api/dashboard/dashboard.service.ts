@@ -11,11 +11,14 @@ export class DashboardService {
         @Inject(CACHE_MANAGER) private cacheManager: Cache
     ) { }
 
-    async getAnalytics(workspaceId: string, range?: string) {
-        const valueCardDashboard = await this.cacheManager.get(`value-card-dashboard-${range}`);
+    async getAnalytics(workspaceId: string, range: string = "30d") {
+        // 1. Cache Key unik per workspace agar tidak terjadi kebocoran data
+        const cacheKey = `value-card-dashboard:${workspaceId}:${range}`;
+        const valueCardDashboard = await this.cacheManager.get(cacheKey);
         if (valueCardDashboard) {
             return valueCardDashboard;
         }
+
         const now = new Date();
 
         let durationMs: number;
@@ -57,6 +60,9 @@ export class DashboardService {
             prevTotal,
             prevAgg,
             prevResolved,
+            // Grouping berdasarkan senderJid untuk menghitung Retention Rate
+            currentActiveUsers,
+            prevActiveUsers,
         ] = await Promise.all([
             this.prisma.aiLog.count({ where: baseWhereCurrent }),
             this.prisma.aiLog.aggregate({
@@ -82,25 +88,46 @@ export class DashboardService {
                     isEscalated: false,
                 },
             }),
+            // Distinct Users Periode Sekarang (mengabaikan null)
+            this.prisma.aiLog.groupBy({
+                by: ['senderJid'],
+                where: { ...baseWhereCurrent, senderJid: { not: null } },
+                _count: { senderJid: true },
+            }),
+            // Distinct Users Periode Lalu (mengabaikan null)
+            this.prisma.aiLog.groupBy({
+                by: ['senderJid'],
+                where: { ...baseWherePrev, senderJid: { not: null } },
+                _count: { senderJid: true },
+            }),
         ]);
 
+        // Kalkulasi Response Time
         const currAvgLatencySec = (currentAgg._avg.latencyMs || 0) / 1000;
         const prevAvgLatencySec = (prevAgg._avg.latencyMs || 0) / 1000;
-
         const responseTimeChange = prevAvgLatencySec > 0
             ? ((currAvgLatencySec - prevAvgLatencySec) / prevAvgLatencySec) * 100
             : 0;
 
+        // Kalkulasi Resolution Rate
         const currResRate = currentTotal > 0 ? (currentResolved / currentTotal) * 100 : 0;
         const prevResRate = prevTotal > 0 ? (prevResolved / prevTotal) * 100 : 0;
         const resRateChange = currResRate - prevResRate;
 
+        // Kalkulasi Confidence
         const currConfidencePct = (currentAgg._avg.confidence || 0) * 100;
         const prevConfidencePct = (prevAgg._avg.confidence || 0) * 100;
         const confidenceChange = currConfidencePct - prevConfidencePct;
 
-        const currRetention = 84.2;
-        const retentionChange = 2.1;
+        // 2. Kalkulasi Dinamis Retention Rate (% senderJid yang kirim pesan > 1x)
+        const totalUsersCurr = currentActiveUsers.length;
+        const repeatUsersCurr = currentActiveUsers.filter((u) => u._count.senderJid > 1).length;
+        const currRetention = totalUsersCurr > 0 ? (repeatUsersCurr / totalUsersCurr) * 100 : 0;
+
+        const totalUsersPrev = prevActiveUsers.length;
+        const repeatUsersPrev = prevActiveUsers.filter((u) => u._count.senderJid > 1).length;
+        const prevRetention = totalUsersPrev > 0 ? (repeatUsersPrev / totalUsersPrev) * 100 : 0;
+        const retentionChange = currRetention - prevRetention;
 
         const formattedResponseTime = currAvgLatencySec >= 60
             ? `${(currAvgLatencySec / 60).toFixed(1)}m`
@@ -128,12 +155,14 @@ export class DashboardService {
                 isImprovement: retentionChange > 0,
             },
         };
-        this.cacheManager.set(`value-card-dashboard-${range}`, response);
+
+        // Simpan cache per workspace dengan TTL 5 menit (300.000 ms)
+        await this.cacheManager.set(cacheKey, response, 300000);
         return response;
     }
 
     async getDashboardCharts(workspaceId: string, range?: string) {
-        const chartAiLogs = await this.cacheManager.get(`chart-ailog-${range}`);
+        const chartAiLogs = await this.cacheManager.get(`chart-ailog-${range}:${workspaceId}`);
         if (chartAiLogs) {
             return chartAiLogs;
         }
@@ -278,12 +307,12 @@ export class DashboardService {
             responseTimeData,
             growthData,
         };
-        await this.cacheManager.set(`chart-ailog-${range}`, response, 1000 * 60 * 5);
+        await this.cacheManager.set(`chart-ailog-${range}:${workspaceId}`, response, 1000 * 60 * 5);
         return response;
     }
 
     async getModelPerformance(workspaceId: string, range?: string) {
-        const modelPerformance = await this.cacheManager.get(`model-performance-${range}`);
+        const modelPerformance = await this.cacheManager.get(`model-performance-${range}:${workspaceId}`);
         if (modelPerformance) {
             return modelPerformance;
         }
@@ -354,7 +383,7 @@ export class DashboardService {
                 };
             })
         );
-        await this.cacheManager.set(`model-performance-${range}`, response, 1000 * 60 * 5);
+        await this.cacheManager.set(`model-performance-${range}:${workspaceId}`, response, 1000 * 60 * 5);
         return response;
     }
 

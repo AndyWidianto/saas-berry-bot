@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, CheckCircle, ChevronLeft, ChevronRight, Crown, Download, Wallet } from "lucide-react";
+import { ArrowUpRight, CheckCircle, ChevronLeft, ChevronRight, Crown, Download, Loader2, Wallet } from "lucide-react";
 import { PageHeader } from "../../../components/PageHeader";
 import { Card } from "../../../components/Cards";
 import { Badge, BadgeVariant } from "../../../components/Bagde";
@@ -11,6 +11,8 @@ import useAxios from "@/lib/axios-service";
 import { useParams } from "next/navigation";
 import { CreditTransactionType, Invoice, ResponseApi, WorkspaceBalance } from "@/lib/types";
 import { useBalanceStore } from "@/lib/store/balanceStore";
+import { InvoicePdfDocument } from "@/app/components/InvoicePdfDocument";
+import { pdf } from "@react-pdf/renderer";
 
 
 
@@ -34,16 +36,24 @@ const formatTransactionType = (type: CreditTransactionType) => {
     return type.replace('_', ' ');
 };
 
+const formatIDR = (val: number) =>
+    new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+    }).format(val || 0);
+
 
 export default function BillingPage() {
     const { AxiosPrivate } = useAxios();
     const { balance, setBalance } = useBalanceStore(); // Mengambil saldo dari store    
     const [openModalTopUp, setOpenModalTopUp] = useState(false);
-    const { workspace } = useParams();
+    const { workspace: workspaceId } = useParams();
     const [transactions, setTransactions] = useState<Invoice[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [nextId, setNextId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [loadingImport, setLoadingImport] = useState(false);
 
     // Kalkulasi Pagination
     const itemsPerPage = 10;
@@ -54,27 +64,27 @@ export default function BillingPage() {
     const currentTransactions = transactions.slice(startIndex, endIndex);
 
     const fetchBalance = async () => {
-        if (balance !== null) return; // Jika saldo sudah ada, tidak perlu fetch lagi
+        if (balance && balance.workspaceId === workspaceId) return;
         try {
-            const res = await AxiosPrivate.get(`${workspace}/balance`);
+            const res = await AxiosPrivate.get(`${workspaceId}/balance`);
             const result = res.data;
-            setBalance(result.data.amount);
+            setBalance(result.data);
         } catch (err) {
             console.error("Fetch Error: ", err);
         }
     }
     const fetchInvoices = async (page: number, currentNextId?: string | null) => {
         if (page > totalPages && totalPages > 0) return;
-        if (loading) return;
+        if (loadingImport) return;
 
         try {
-            setLoading(true);
+            setLoadingImport(true);
             let searchParam = `limit=${itemsPerPage}`;
             if (page > 1 && currentNextId) {
                 searchParam += `&lastId=${currentNextId}`;
             }
 
-            const res = await AxiosPrivate.get(`/${workspace}/invoices?${searchParam}`);
+            const res = await AxiosPrivate.get(`/${workspaceId}/invoices?${searchParam}`);
             const result = res.data as ResponseApi;
 
             setTransactions(prev => page === 1 ? result.data : [...prev, ...result.data]);
@@ -84,12 +94,39 @@ export default function BillingPage() {
         } catch (err) {
             console.error("fetch error: ", err);
         } finally {
+            setLoadingImport(false);
+        }
+    };
+
+
+    const handleDownloadInvoicePdf = async () => {
+        if (!workspaceId) return;
+        try {
+            setLoading(true);
+            const response = await AxiosPrivate.get(`/${workspaceId}/invoices/import`);
+            const result = response.data;
+            const invoicesData: Invoice[] = result.data;
+
+            const blob = await pdf(
+                <InvoicePdfDocument workspaceId={workspaceId as string} invoices={invoicesData} />
+            ).toBlob();
+
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = `invoice-${workspaceId}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+
+            link.remove();
+            URL.revokeObjectURL(downloadUrl);
+        } catch (error) {
+            console.error('Gagal membuat PDF invoice:', error);
+            alert('Gagal mengeksport PDF invoice');
+        } finally {
             setLoading(false);
         }
     };
-    const onDownloadAllReceipts = () => {
-        alert("Sedang proses...")
-    }
 
     const handleNextPage = () => {
         if (currentPage < totalPages && !loading) {
@@ -105,7 +142,7 @@ export default function BillingPage() {
         }
     };
     useEffect(() => {
-        if (!workspace) return;
+        if (!workspaceId) return;
 
         fetchBalance();
 
@@ -113,28 +150,56 @@ export default function BillingPage() {
         setNextId(null);
         fetchInvoices(1, null);
 
-    }, [workspace]);
+    }, [workspaceId]);
     return (
         <div className="h-full overflow-auto p-6">
-            <PageHeader title="Wallet & Top Up" subtitle="Manage your balance, purchase credits, and track usage" />
+            <PageHeader title="Wallet & Top Up" subtitle="Kelola saldo Anda, beli kredit, dan pantau penggunaan" />
 
             {/* Current Balance Banner */}
-            <Card className="p-5 mb-6 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <Wallet className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-semibold text-foreground">Current Balance</span>
-                            <Badge variant="success">Active</Badge>
+            <Card className="p-4 sm:p-5 mb-6 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20 shadow-sm rounded-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    {/* Sisi Kiri: Info Balance & Badge */}
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                <Wallet className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs sm:text-sm font-semibold text-foreground">
+                                Current Balance
+                            </span>
+                            <Badge variant="success" className="text-[10px] px-2 py-0.5">
+                                Active
+                            </Badge>
                         </div>
-                        <div className="flex items-baseline gap-2 mt-1">
-                            <span className="text-3xl font-bold text-foreground">Rp.{balance?.toLocaleString() || 0}</span>
-                            <span className="text-xs text-muted-foreground">· Credits never expire</span>
+
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 pt-1">
+                            <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                                {formatIDR(balance?.amount || 0)}
+                            </span>
+                            <span className="text-[11px] sm:text-xs text-muted-foreground flex items-center gap-1">
+                                <span className="hidden sm:inline">·</span> Credits never expire
+                            </span>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <Btn variant="secondary" size="sm">View History</Btn>
-                        <Btn variant="primary" size="sm" icon={ArrowUpRight} onClick={() => setOpenModalTopUp(true)}>Instant Top Up</Btn>
+
+                    {/* Sisi Kanan: Action Buttons */}
+                    <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50">
+                        {/* <Btn
+                            variant="secondary"
+                            size="sm"
+                            className="flex-1 sm:flex-none justify-center text-xs"
+                        >
+                            View History
+                        </Btn> */}
+                        <Btn
+                            variant="primary"
+                            size="sm"
+                            icon={ArrowUpRight}
+                            onClick={() => setOpenModalTopUp(true)}
+                            className="flex-1 sm:flex-none justify-center text-xs"
+                        >
+                            Instant Top Up
+                        </Btn>
                     </div>
                 </div>
             </Card>
@@ -181,10 +246,19 @@ export default function BillingPage() {
                     <Btn
                         variant="secondary"
                         size="sm"
-                        icon={Download}
-                        onClick={onDownloadAllReceipts}
+                        onClick={handleDownloadInvoicePdf}
                     >
-                        Download Receipts
+                        {
+                            loadingImport ?
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    processing
+                                </> :
+                                <>
+                                    <Download className="w-3.5 h-3.5" />
+                                    Download Receipts
+                                </>
+                        }
                     </Btn>
                 </div>
 

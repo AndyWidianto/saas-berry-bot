@@ -17,6 +17,9 @@ import { ChatbotProcessor } from "../queue-chatbot/queue-chatbot.processor";
     imports: [
         BullModule.registerQueue({
             name: "queue-chatbot-api"
+        }),
+        BullModule.registerQueue({
+            name: "notification-queue"
         })
     ]
 })

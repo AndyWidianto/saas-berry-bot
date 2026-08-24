@@ -1,9 +1,7 @@
-import { BadRequestException, Injectable, InternalServerErrorException, OnModuleInit } from "@nestjs/common";
-import { Message, Ollama } from "ollama";
+import { BadRequestException, Injectable, OnModuleInit } from "@nestjs/common";
 import { Content, GoogleGenerativeAI } from "@google/generative-ai";
 import { ConfigService } from "@nestjs/config";
-import { CACHE_RAM_MODEl_GEMINI } from "../constant/constant-model";
-import { AIModel } from "@prisma/client";
+import { Message } from "@prisma/client";
 
 
 interface GoogleAPIError {
@@ -36,7 +34,6 @@ export class GeminiService implements OnModuleInit {
                     parts: [{ text: text }]
                 },
             });
-
             const embedding = result.embedding;
             return embedding.values;
         } catch (err: unknown) {
@@ -47,10 +44,9 @@ export class GeminiService implements OnModuleInit {
 
     async chatbot(model: string, prompt: string, systemRules: string, history: Content[] = []) {
         try {
-            console.log("Message: ", prompt);
             const genModel = this.genAI.getGenerativeModel({
                 model: model,
-                systemInstruction: `${systemRules} \n FORMAT OUTPUT WAJIB: ===JAWABAN=== \n [Hasil Teks]`,
+                systemInstruction: systemRules,
             });
             const stratChat = genModel.startChat({
                 history: [...history]
@@ -59,7 +55,10 @@ export class GeminiService implements OnModuleInit {
             const text = result.response.text();
             console.log(text);
             let cleanedText = (text.split('===JAWABAN===').pop() || text).trim();
-            return cleanedText;
+            return {
+                text: text,
+                cleanedText
+            };
         } catch (err: unknown) {
             console.error(`Gagal mendapatkan jawaban dari model ${model}:`, err);
             throw new BadRequestException("Gagal mendapatkan jawaban");
@@ -92,5 +91,61 @@ export class GeminiService implements OnModuleInit {
             console.error(`Gagal menghitung token untuk model ${model}:`, err);
             throw new BadRequestException("Gagal menghitung jumlah token");
         }
+    }
+
+    async countTokens(
+        text: string | string[],
+        model: string = "text-embedding-004"
+    ): Promise<number> {
+        try {
+            const modelAI = this.genAI.getGenerativeModel({ model });
+            let contents: string | string[];
+
+            if (Array.isArray(text)) {
+                contents = text;
+            } else {
+                contents = [text];
+            }
+
+            const result = await modelAI.countTokens(contents);
+
+            return result.totalTokens;
+        } catch (err: unknown) {
+            console.error(`Gagal menghitung token embedding untuk model ${model}:`, err);
+            throw new BadRequestException("Gagal menghitung jumlah token embedding");
+        }
+    }
+
+
+    sanitizeHistory(messages: Message[]): Content[] {
+        if (!messages || messages.length === 0) return [];
+
+        const rawHistory: Content[] = messages
+            .filter(m => m.content && m.content.trim() !== "") // Buang pesan kosong
+            .map(m => ({
+                role: m.fromMe ? "model" : "user",
+                parts: [{ text: m.content }]
+            }));
+
+        const sanitized: Content[] = [];
+
+        for (const item of rawHistory) {
+            if (sanitized.length === 0) {
+                if (item.role === "user") {
+                    sanitized.push(item);
+                }
+                continue;
+            }
+
+            const lastItem = sanitized[sanitized.length - 1];
+
+            if (lastItem.role === item.role) {
+                lastItem.parts[0].text += `\n${item.parts[0].text}`;
+            } else {
+                sanitized.push(item);
+            }
+        }
+
+        return sanitized;
     }
 }

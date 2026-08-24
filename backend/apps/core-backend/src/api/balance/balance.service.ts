@@ -1,12 +1,15 @@
 import { PrismaService } from "@library/prisma/prisma.service";
+import { PayloadJWT } from "@library/types";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { WorkspaceBalance } from "@prisma/client";
+import { WorkspaceService } from "../workspace/workspace.service";
 
 
 @Injectable()
 export class BalanceService {
     constructor(
         private prisma: PrismaService,
+        private workspaceService: WorkspaceService
     ) { }
 
     async topup(workspaceId: string, nominal: number) {
@@ -14,38 +17,27 @@ export class BalanceService {
             throw new BadRequestException("Minimal topup 20000");
         }
     }
-    async getFirst(workspaceId: string) {
-        const existing = await this.prisma.workspace.findFirst({
-            where: { id: workspaceId }
-        });
-        if (!existing) {
-            throw new NotFoundException("Workspace not found");
-        }
+    async getFirst(user: PayloadJWT, workspaceId: string) {
+        const workspace = await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
         let balance = await this.prisma.workspaceBalance.findFirst({
-            where: { workspaceId }
+            where: { workspaceId: workspace.id }
         });
-        const dataToSend: Record<string, string | {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            workspaceId: string;
-            amount: number;
-        }> = {
-            message: "Successfully"
-        }
+
         if (!balance) {
-            const newBalance = await this.prisma.workspaceBalance.create({
+            balance = await this.prisma.workspaceBalance.create({
                 data: {
-                    workspaceId,
+                    workspaceId: workspace.id,
                     amount: 0
                 }
             });
-            balance = newBalance;
         }
-        dataToSend.data = {
-            ...balance,
-            amount: balance.amount.toNumber()
-        }
-        return dataToSend;
+
+        return {
+            message: "Successfully",
+            data: {
+                ...balance,
+                amount: Number(balance.amount)
+            }
+        };
     }
 }

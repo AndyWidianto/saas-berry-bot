@@ -1,6 +1,8 @@
 import { PrismaService } from "@library/prisma/prisma.service";
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { WorkspaceService } from "../workspace/workspace.service";
+import { PayloadJWT } from "@library/types";
 
 
 
@@ -8,10 +10,12 @@ import { Prisma } from "@prisma/client";
 export class InvoiceService {
 
     constructor(
+        private workspaceService: WorkspaceService,
         private prisma: PrismaService
-    ) {}
+    ) { }
 
-    async getAll(workspaceId: string, lastId?: string, limitStr?: string) {
+    async getAll(user: PayloadJWT, workspaceId: string, lastId?: string, limitStr?: string) {
+        const workspace = await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
         const limit = limitStr ? Number(limitStr) : 10;
         const query: Prisma.CreditLedgerFindManyArgs = {
             where: { workspaceId },
@@ -36,6 +40,26 @@ export class InvoiceService {
             totalPage: Math.ceil(totalInvoice / limit),
             total: totalInvoice,
             nextId: invoices.length > 0 ? invoices[invoices.length - 1].id : null
+        }
+    }
+
+    async import(user: PayloadJWT, workspaceId: string, lastId?: string) {
+        const workspace = await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
+        const query: Prisma.CreditLedgerFindManyArgs = {
+            where: { workspaceId },
+            ...lastId ? {
+                cursor: { id: lastId },
+                skip: 1
+            } : {},
+            orderBy: [
+                { id: "desc" },
+                { createdAt: "desc" }
+            ]
+        };
+        const contacts = await this.prisma.creditLedger.findMany(query);
+        return {
+            data: contacts,
+            message: "Berhasil mengambil data"
         }
     }
 }

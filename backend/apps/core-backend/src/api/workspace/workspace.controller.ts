@@ -3,6 +3,7 @@ import { WorkspaceService } from "./workspace.service";
 import type { RequestAndPayload } from "../../../../lib/types";
 import { CreateMemberDto, CreateWorkspaceDto, UpdateWorkspaceDto } from "../../../../lib/dto/workspace.dto";
 import { AuthGuard } from "@nestjs/passport";
+import { SkipThrottle } from "@nestjs/throttler";
 
 
 
@@ -17,6 +18,7 @@ export class WorkspaceController {
         return await this.service.create(user, body);
     }
 
+    @SkipThrottle()
     @Get()
     @UseGuards(AuthGuard("jwt"))
     async getAllWorkspace(@Req() req: RequestAndPayload, @Query() query: { search?: string, limit?: string, order?: "DESC" | "ASC", lastId?: string }) {
@@ -38,6 +40,7 @@ export class WorkspaceController {
         return await this.service.delete(user, id);
     }
 
+    @SkipThrottle()
     @Get(":id/members")
     @UseGuards(AuthGuard("jwt"))
     async getWorkspaceMembers(@Req() req: RequestAndPayload, @Param("id") id: string) {

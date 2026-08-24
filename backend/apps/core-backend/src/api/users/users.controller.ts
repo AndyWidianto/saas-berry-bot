@@ -8,6 +8,7 @@ import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { existsSync, mkdirSync } from "fs";
 import { diskStorage } from "multer";
 import { extname } from "path";
+import { SkipThrottle } from "@nestjs/throttler";
 
 
 
@@ -80,12 +81,13 @@ export class UsersController {
         return this.service.resetPassword(userId, body);
     }
 
+    @SkipThrottle()
     @ApiOperation({ summary: "mendapatkan stats user" })
     @ApiResponse({ status: 200, description: "User berhasil mendapatkan stats!" })
     @Get("stats")
     @UseGuards(AuthGuard("jwt"))
-    async getStats() {
-        return this.service.getStats();
+    async getStats(@Req() req: RequestAndPayload) {
+        return this.service.getStats(req.user);
     }
 
     @ApiOperation({ summary: "Upload profile" })

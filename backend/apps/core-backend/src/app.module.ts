@@ -4,25 +4,31 @@ import { AppService } from './app.service';
 import { ApiModule } from './api/api.module';
 import { EventModule } from './event/event.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { CloudinaryModule } from '../../lib/cloudinary/cloudinary.module';
 import { CacheModule } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-redis-yet';
 import { PrismaModule } from '../../lib/prisma/prisma.module';
 import { Keyv } from 'keyv';
-import { KeyvCacheableMemory } from 'cacheable';
 import KeyvRedis from '@keyv/redis';
 import { createClient } from 'redis';
 import { BullModule } from '@nestjs/bullmq';
 import { NodemailerModule } from '@library/nodemailer/nodemailer.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { EmbeddingModule } from '@library/shared/embedding.module';
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { APP_GUARD } from '@nestjs/core';
+import { StorageModule } from '@library/storage/storage.module';
+import { AgentModule } from '@library/agent/agent.module';
 
 
 @Module({
   imports: [
     PrismaModule,
+    EventModule,
+    AgentModule,
     ApiModule,
     EventModule,
     NodemailerModule,
+    EmbeddingModule,
+    StorageModule,
     ServeStaticModule.forRoot({
       rootPath: '/var/berry/images',
       serveRoot: '/images',          // Prefix URL publik
@@ -31,7 +37,6 @@ import { ServeStaticModule } from '@nestjs/serve-static';
       isGlobal: true,
       envFilePath: ".env"
     }),
-    CloudinaryModule,
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],
@@ -71,8 +76,20 @@ import { ServeStaticModule } from '@nestjs/serve-static';
       }),
       inject: [ConfigService],
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // Waktu (dalam milidetik). 60000ms = 1 menit
+        limit: 10,  // Maksimal 10 request per window (ttl)
+      },
+    ]),
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard
+    }
+  ],
 })
-export class AppModule {}
+export class AppModule { }

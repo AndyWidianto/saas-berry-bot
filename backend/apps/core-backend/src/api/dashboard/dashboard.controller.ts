@@ -1,30 +1,35 @@
 import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { DashboardService } from "./dashboard.service";
+import { SkipThrottle } from "@nestjs/throttler";
 
 
 @Controller("api/:workspaceId/dashboard")
 export class DashboardController {
     constructor(private service: DashboardService) { }
 
+    @SkipThrottle()
     @Get("analytics")
     @UseGuards(AuthGuard("jwt"))
     async getAnalytics(@Param("workspaceId") workspaceId: string, @Query() query: { range?: string }) {
         return await this.service.getAnalytics(workspaceId, query.range);
     }
 
+    @SkipThrottle()
     @Get("analytics/charts")
     @UseGuards(AuthGuard("jwt"))
     async getAnatyticsAI(@Param("workspaceId") workspaceId: string, @Query() query: { range?: string }) {
         return await this.service.getDashboardCharts(workspaceId, query.range);
     }
 
+    @SkipThrottle()
     @Get("analytics/model/performance")
     @UseGuards(AuthGuard("jwt"))
     async getModelPerformance(@Param("workspaceId") workspaceId: string, @Query() query: { range?: string }) {
         return await this.service.getModelPerformance(workspaceId, query.range);
     }
 
+    @SkipThrottle()
     @Get("analytics/peak-and-distribution")
     @UseGuards(AuthGuard("jwt"))
     async getPeakAndDistribution(@Param("workspaceId") workspaceId: string, @Query() query: { range?: string }) {

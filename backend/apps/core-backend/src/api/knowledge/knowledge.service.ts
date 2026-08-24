@@ -2,13 +2,15 @@ import { PrismaService } from "../../../../lib/prisma/prisma.service";
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { CreateKnowledgeAI, PayloadJWT, KnowledgeChunk } from "../../../../lib/types";
 import * as XLSX from 'xlsx';
-import { AIModel, Prisma } from "@prisma/client";
+import { AIModel, Prisma, WorkspaceBalance } from "@prisma/client";
 import { GeminiService } from "../../../../lib/agent/gemini.service";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import type { Cache } from "cache-manager";
 import * as mammoth from 'mammoth';
 import BigNumber from "bignumber.js";
 import { BillingService } from "@library/billing/billing.service";
+import { EmbeddingService } from "@library/shared/embedding.service";
+import { CreateKnowledgeUrlDto } from "@library/dto/knowledge";
 
 const pdf = require('pdf-parse-fork');
 
@@ -20,6 +22,7 @@ export class KnowledgeService {
         private prisma: PrismaService,
         private gemini: GeminiService,
         private billingService: BillingService,
+        private embeddingService: EmbeddingService,
         @Inject(CACHE_MANAGER) private cacheManager: Cache
     ) { }
     async createKnowledge(user: PayloadJWT, workspaceId: string, data: CreateKnowledgeAI) {
@@ -32,133 +35,29 @@ export class KnowledgeService {
         if (!data.file) {
             throw new BadRequestException("File is Required");
         }
-
-        const existingWorkspace = await this.prisma.workspace.findFirst({
-            where: { id: workspaceId },
-            include: { workspaceBalances: true, embeddingModel: true, members: true }
-        });
-        if (!existingWorkspace) {
-            throw new NotFoundException("Workspace not found");
-        }
-        const existingModel = existingWorkspace.embeddingModel;
-        if (!existingModel) {
-            throw new NotFoundException("AI Model not found. Please create an AI Model first.");
-        }
-        const findMember = existingWorkspace.members.find(member => member.userId === user.id);
-        if (!findMember) {
-            throw new BadRequestException("Akses ditolak. Anda tidak terdaftar di workspace ini.")
-        }
-        if (findMember.role === "MEMBER") {
-            throw new BadRequestException("Akses ditolak. Role Member tidak diizinkan untuk membuat knowledge ai.");
-        }
-        const workspaceBalance = existingWorkspace.workspaceBalances;
-        if (!workspaceBalance) return;
-
-        if (!workspaceBalance || workspaceBalance.amount.toNumber() <= 0) {
+        const { workspace, modelEmbedding } = await this.validateWorkspaceAndMember(user.id, workspaceId);
+        const workspaceBalance = workspace.workspaceBalances;
+        if (!workspaceBalance) {
             throw new BadRequestException("Saldo tidak mencukupi. Silahkan top up saldo terlebih dahulu.");
-        }
-        let rawText = '';
-        let chunks: string[] = [];
-        const chunkSize = 1000;
-        const chunkOverlap = 200;
+        };
 
-        const mimetype = data.file.mimetype;
-        let type = "txt";
+        const { rawText, chunks, type } = await this.embeddingService.sterilizedFile(data.file);
+        const { totalCost } = await this.validateBalance(rawText, modelEmbedding, workspaceBalance);
 
-        if (mimetype === 'application/pdf') {
-            const pdfData = await pdf(data.file.buffer);
-            rawText = pdfData.text;
-            type = "pdf";
-        }
-        else if (mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || mimetype === 'application/vnd.ms-excel') {
-            const workbook = XLSX.read(data.file.buffer, { type: 'buffer' });
-            const allRows = workbook.SheetNames.flatMap(sheetName => {
-                return XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-            });
-
-            if (allRows.length > 0) {
-                chunks = allRows.map((row: any) => {
-                    return Object.entries(row)
-                        .map(([key, val]) => `${key}: ${val}`)
-                        .join(", ");
-                });
-            }
-            type = "excel";
-        }
-        else if (mimetype === 'text/plain') {
-            rawText = data.file.buffer.toString('utf-8');
-            type = "txt";
-        }
-        else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mimetype === 'application/msword') {
-            const result = await mammoth.extractRawText({ buffer: data.file.buffer });
-            rawText = result.value;
-            type = "docx";
-        }
-        else {
-            throw new BadRequestException("Format file tidak didukung (Gunakan PDF, Excel, atau TXT)");
-        }
-
-        if (rawText && rawText.trim()) {
-            chunks = this.splitText(rawText, chunkSize, chunkOverlap);
-        }
-        const totalCost = this.billingService.calculatePayToken(rawText, existingModel);
-        const totalBalance = BigNumber(workspaceBalance.amount.toString());
-        if (totalBalance.isLessThan(totalCost.totalCost)) {
-            throw new BadRequestException("Saldo tidak mencukupi. Silahkan top up saldo terlebih dahulu.");
-        }
         const knowledge = await this.prisma.knowledge.create({
             data: {
                 size: data.file.size,
                 name: data.file.originalname,
                 totalChunk: chunks.length,
-                type: type,
+                modelName: modelEmbedding.name,
+                type:  type ?? "text",
                 status: "PROCESSING",
                 workspaceId: workspaceId,
             }
         });
+        const knowledgeItems = await this.embeddingService.createKnowledgeItems(workspaceId, knowledge.id, chunks, modelEmbedding);
 
-        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms * 1000));
-        const batchSize = 10;
-        for (let i = 0; i < chunks.length; i += batchSize) {
-            const batch = chunks.slice(i, i + batchSize);
-            const results = await Promise.all(batch.map(async (chunk) => {
-                const vector = await this.gemini.embeddingsGemini(existingModel.modelCode, chunk);
-                return {
-                    content: chunk,
-                    vector: `[${vector.join(',')}]`
-                };
-            }));
-            const values = results.map((d) => {
-                return Prisma.sql`(
-                        gen_random_uuid(), 
-                        ${d.content}, 
-                        ${d.vector}::vector, 
-                        ${knowledge.id},
-                        ${existingWorkspace.id},
-                        now(), 
-                        now()
-                    )`;
-            });
-            await this.prisma.$executeRaw`
-                    INSERT INTO "knowledge_items" (
-                        "id", 
-                        "content",
-                        "embedding", 
-                        "knowledgeId",
-                        "workspaceId",
-                        "created_at", 
-                        "updated_at"
-                    ) 
-                    VALUES ${Prisma.join(values)}
-            `;
-            await delay(2);
-        }
-
-        const [updateKnowledge, _workspaceBalance] = await this.prisma.$transaction([
-            this.prisma.knowledge.update({
-                where: { id: knowledge.id },
-                data: { status: "INDEXED" }
-            }),
+        const [_workspaceBalance] = await this.prisma.$transaction([
             this.prisma.workspaceBalance.update({
                 where: { workspaceId },
                 data: {
@@ -172,7 +71,7 @@ export class KnowledgeService {
                     amount: totalCost.totalCost,
                     type: "USAGE_RAG",
                     workspaceId,
-                    description: `Melakukan embedding file ${data.file.filename}`
+                    description: `Melakukan embedding file ${data.file.originalname}`
                 }
             })
         ])
@@ -180,20 +79,110 @@ export class KnowledgeService {
 
         return {
             message: "Knowledge processed and vectorized",
-            data: updateKnowledge
+            data: knowledge,
+            totalChunk: knowledgeItems.totalChunks
         };
     }
 
-    private splitText(text: string, size: number, overlap: number): string[] {
-        const chunks: string[] = [];
-        let i = 0;
-        const cleanText = text.replace(/\0/g, '').trim();
-
-        while (i < cleanText.length) {
-            chunks.push(cleanText.slice(i, i + size));
-            i += size - overlap;
+    async createKnowledgeFromURL(user: PayloadJWT, workspaceId: string, data: CreateKnowledgeUrlDto) {
+        if (user.role === "review") {
+            throw new BadRequestException("Akses ditolak. Role Review hanya diperbolehkan melihat data.")
         }
-        return chunks;
+
+        if (!data.url) {
+            throw new BadRequestException("Url is Required");
+        }
+        const { workspace, modelEmbedding } = await this.validateWorkspaceAndMember(user.id, workspaceId);
+        const workspaceBalance = workspace.workspaceBalances;
+        if (!workspaceBalance) {
+            throw new BadRequestException("Saldo tidak mencukupi. Silahkan top up saldo terlebih dahulu.");
+        };
+
+        const result = await this.embeddingService.fetchDataAndSterilize(data.url);
+        const convertString = this.embeddingService.cleanTextSpacing(this.embeddingService.convertToVectorInput(result).trim());
+
+        const { totalCost } = await this.validateBalance(convertString, modelEmbedding, workspaceBalance);
+
+        const chunks = this.embeddingService.chunking(convertString);
+
+        const sizeBytes = this.embeddingService.getTextSizeBytes(convertString);
+        const knowledge = await this.prisma.knowledge.create({
+            data: {
+                size: sizeBytes.bytes,
+                name: data.url,
+                totalChunk: chunks.length,
+                modelName: modelEmbedding.name,
+                type: "url",
+                status: "PROCESSING",
+                workspaceId: workspaceId,
+            }
+        });
+        const knowledgeItems = await this.embeddingService.createKnowledgeItems(workspaceId, knowledge.id, chunks, modelEmbedding);
+
+        const [_workspaceBalance] = await this.prisma.$transaction([
+            this.prisma.workspaceBalance.update({
+                where: { workspaceId },
+                data: {
+                    amount: {
+                        decrement: totalCost.totalCost
+                    }
+                }
+            }),
+            this.prisma.creditLedger.create({
+                data: {
+                    amount: totalCost.totalCost,
+                    type: "USAGE_RAG",
+                    workspaceId,
+                    description: `Melakukan embedding url ${data.url}`
+                }
+            })
+        ])
+        await this.clearKnowledgeCache(workspaceId);
+
+
+        return {
+            message: "Knowledge processed and vectorized",
+            data: knowledge,
+            totalChunk: knowledgeItems.totalChunks
+        };
+    }
+
+    async validateBalance(rawText: string, modelEmbedding: AIModel, balance: WorkspaceBalance) {
+        const totalCost = await this.billingService.totalCostInput("", rawText, modelEmbedding);
+        const totalBalance = BigNumber(balance.amount.toString());
+        if (totalBalance.isLessThan(totalCost.totalCost)) {
+            throw new BadRequestException("Saldo tidak mencukupi. Silahkan top up saldo terlebih dahulu.");
+        }
+        return {
+            totalCost,
+            totalBalance
+        }
+    }
+
+    async validateWorkspaceAndMember(userId: string, workspaceId: string) {
+        const existingWorkspace = await this.prisma.workspace.findFirst({
+            where: { id: workspaceId },
+            include: { workspaceBalances: true, embeddingModel: true, members: true }
+        });
+        if (!existingWorkspace) {
+            throw new NotFoundException("Workspace not found");
+        }
+        const existingModel = existingWorkspace.embeddingModel;
+        if (!existingModel) {
+            throw new NotFoundException("AI Model not found. Please create an AI Model first.");
+        }
+        const findMember = existingWorkspace.members.find(member => member.userId === userId);
+        if (!findMember) {
+            throw new BadRequestException("Akses ditolak. Anda tidak terdaftar di workspace ini.")
+        }
+        if (findMember.role === "MEMBER") {
+            throw new BadRequestException("Akses ditolak. Role Member tidak diizinkan untuk membuat knowledge ai.");
+        }
+        return {
+            workspace: existingWorkspace,
+            member: findMember,
+            modelEmbedding: existingModel,
+        }
     }
 
 
@@ -298,12 +287,18 @@ export class KnowledgeService {
     }
 
     async getChunks(workspaceId: string, message: string, modelEmbedding: AIModel | null) {
+        console.log("Message: ", message);
         if (!modelEmbedding) {
             throw new BadRequestException("Model not found");
         }
         let messageVector: number[] = [];
+        let costInput = {
+            totalCost: 0,
+            totalUsedToken: 0,
+        }
         if (modelEmbedding.provider === "GOOGLE") {
             messageVector = await this.gemini.embeddingsGemini(modelEmbedding.modelCode, message);
+            costInput = await this.billingService.totalCostInput("", message, modelEmbedding);
         }
         const vectorString = `[${messageVector.join(',')}]`;
         const contextChunks = await this.prisma.$queryRaw<KnowledgeChunk[]>`
@@ -322,6 +317,9 @@ export class KnowledgeService {
                     ORDER BY similarity DESC
                     LIMIT 6;
                 `;
-        return contextChunks;
+        return {
+            context: contextChunks,
+            totalCostInput: costInput
+        };
     }
 }

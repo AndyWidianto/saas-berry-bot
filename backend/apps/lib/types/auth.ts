@@ -26,3 +26,11 @@ export interface PayloadJWT {
 export interface RequestAndPayload extends Request {
     user: PayloadUser
 }
+
+export interface UserOAuth {
+    email: any;
+    firstName: any;
+    lastName: any;
+    picture: any;
+    accessToken: string;
+}

@@ -17,7 +17,7 @@ export class CreateIntegrationDto {
 
     @ApiProperty()
     @IsNotEmpty({ message: "field platform is required"})
-    platform: "WHATSAPP_BAYLIES" | "EMAIL";
+    platform: "WHATSAPP_BAYLIES" | "EMAIL" | "WHATSAPP";
 
     @ApiProperty()
     @IsOptional()

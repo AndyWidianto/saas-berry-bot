@@ -1,6 +1,7 @@
 import { Global, Module } from "@nestjs/common";
 import { AccessTokenStrategy } from "./access.strategy";
 import { RefreshTokenStrategy } from "./refresh.strategy";
+import { GoogleStrategy } from "./google.strategy";
 
 
 
@@ -9,10 +10,12 @@ import { RefreshTokenStrategy } from "./refresh.strategy";
     providers: [
         AccessTokenStrategy,
         RefreshTokenStrategy,
+        GoogleStrategy,
     ],
     exports: [
         AccessTokenStrategy,
-        RefreshTokenStrategy
+        RefreshTokenStrategy,
+        GoogleStrategy
     ]
 })
 export class GuardModule {};

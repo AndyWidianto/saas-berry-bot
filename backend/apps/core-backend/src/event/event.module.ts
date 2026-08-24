@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Global, Module } from "@nestjs/common";
 import { EventGateway } from "./event.gateway";
 import { JwtModule } from "@nestjs/jwt";
 import { ScheduleService } from "./schedule.service";
@@ -6,6 +6,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 
 
 
+@Global()
 @Module({
     providers: [EventGateway, ScheduleService],
     exports: [EventGateway],

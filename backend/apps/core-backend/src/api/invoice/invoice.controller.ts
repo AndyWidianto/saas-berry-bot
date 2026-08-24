@@ -1,6 +1,8 @@
-import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Query, Req, UseGuards } from "@nestjs/common";
 import { InvoiceService } from "./invoice.service";
 import { AuthGuard } from "@nestjs/passport";
+import { SkipThrottle } from "@nestjs/throttler";
+import type { RequestAndPayload } from "@library/types";
 
 
 
@@ -12,9 +14,20 @@ export class InvoiceController {
         private service: InvoiceService
     ) {}
 
+
+    @SkipThrottle()
     @Get()
     @UseGuards(AuthGuard("jwt"))
-    async getAll(@Param("workspaceId") workspaceId: string, @Query() query: { lastId?: string, limit?: string }) {
-        return await this.service.getAll(workspaceId, query.lastId, query.limit);
+    async getAll(
+        @Req() req: RequestAndPayload,
+        @Param("workspaceId") workspaceId: string,
+        @Query() query: { lastId?: string, limit?: string }) {
+        return await this.service.getAll(req.user, workspaceId, query.lastId, query.limit);
+    }
+
+    @Get("import")
+    @UseGuards(AuthGuard("jwt"))
+    async import(@Req() req: RequestAndPayload, @Param("workspaceId") workspaceId: string, @Query() query: { lastId?: string, limit?: string }) {
+        return await this.service.import(req.user, workspaceId, query.lastId);
     }
 }

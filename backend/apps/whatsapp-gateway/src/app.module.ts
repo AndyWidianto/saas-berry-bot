@@ -3,24 +3,22 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from '../../lib/prisma/prisma.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { CloudinaryModule } from '../../lib/cloudinary/cloudinary.module';
 import { CacheModule } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-redis-yet';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import KeyvRedis from '@keyv/redis';
 import { Keyv } from 'keyv';
-import { KeyvCacheableMemory } from 'cacheable';
 import { createClient } from "redis";
 import { BullModule } from '@nestjs/bullmq';
+import { StorageModule } from '@library/storage/storage.module';
 
 @Module({
   imports: [
     PrismaModule,
+    StorageModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ".env"
     }),
-    CloudinaryModule,
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],

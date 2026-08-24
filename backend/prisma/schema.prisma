@@ -47,7 +47,7 @@ model User {
 model Workspace {
   id      String  @id @default(uuid())
   name    String // Nama ruang kerja, misal: "Tim Marketing A"
-  slug    String  @unique // URL-friendly name, misal: "tim-marketing-a"
+  //slug    String  @unique // URL-friendly name, misal: "tim-marketing-a"
   logoUrl String? @map("logo_url")
 
   systemRules            String? @map("system_rules") @db.Text
@@ -62,7 +62,6 @@ model Workspace {
 
   isAiActive          Boolean @default(true)
   rewrite             Boolean @default(false)
-  isAutoAssignEnabled Boolean @default(true) // Menangani toggle "Auto-assignment"
   workingHoursEnabled Boolean @default(false) // Toggle apakah aturan jam kerja dipakai/tidak
   timezone            String  @default("Asia/Jakarta") // Mencegah perbedaan jam server & pengguna
   workingHours        Json?
@@ -73,8 +72,8 @@ model Workspace {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  embeddingModel    AIModel?          @relation("EmbeddingModelRelation", fields: [activeEmbeddingModelId], references: [id], onDelete: Cascade)
-  chatModel         AIModel?          @relation("ChatModelRelation", fields: [activeChatModelId], references: [id], onDelete: Cascade)
+  embeddingModel    AIModel?          @relation("EmbeddingModelRelation", fields: [activeEmbeddingModelId], references: [id], onDelete: SetNull)
+  chatModel         AIModel?          @relation("ChatModelRelation", fields: [activeChatModelId], references: [id], onDelete: SetNull)
   integrations      Integration[]
   knowledges        Knowledge[]
   messages          Message[]
@@ -242,6 +241,7 @@ model Knowledge {
   type       String          @default("txt")
   totalChunk Int             @default(0) @map("total_chunk") // Ditambahkan @map agar konsisten di DB
   size       Int // Diubah ke Int agar aman dari JSON serialization error
+  modelName  String @default("text-embedding-001")
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -285,7 +285,6 @@ model Message {
   type     String  @default("text") // text, image, document, audio, video
   mediaUrl String? @map("media_url") // Tambahan: Penting untuk pesan non-teks
 
-  aiLogs      AiLog?
   // user 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -303,6 +302,12 @@ model Message {
   @@map("messages")
 }
 
+enum TypeNotification {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+}
 model Notification {
   id          String @id @default(uuid())
   workspaceId String // ID User SaaS pemilik notifikasi
@@ -466,6 +471,8 @@ model AiLog {
   question String @db.Text
   answer   String @db.Text
 
+  senderJid  String?
+
   // Metrik Performa AI
   confidence  Float // Nilai skor misal: 0.85 (85%)
   isFallback  Boolean @default(false) // True jika AI tidak paham & beri jawaban default
@@ -477,8 +484,6 @@ model AiLog {
   tokensUsed Int? // Jumlah token yang dikonsumsi (jika ada)
 
   // Relasi
-  messageId   String?   @unique
-  message     Message?  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -606,20 +611,19 @@ model Contact {
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  workspaceId String   @map("workspace_id")
+  id          String    @id @default(uuid())
+  workspaceId String    @map("workspace_id")
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  name        String   // Contoh: "Beasiswa KIP Kuliah"
-  category    String?  // Contoh: "Beasiswa", "Program Studi", "Fasilitas"
-  description String   @db.Text // Penjelasan detail produk/fasilitas
-  benefits    String?  @db.Text // Contoh: "Tanpa biaya uang gedung, Gratis SPP 8 semester, Uang saku bulanan"
-  imageUrl    String?  @map("image_url") // Link gambar pendukung
+  name        String // Contoh: "Beasiswa KIP Kuliah"
+  category    String? // Contoh: "Beasiswa", "Program Studi", "Fasilitas"
+  description String  @db.Text // Penjelasan detail produk/fasilitas
+  benefits    String? @db.Text // Contoh: "Tanpa biaya uang gedung, Gratis SPP 8 semester, Uang saku bulanan"
+  imageUrl    String? @map("image_url") // Link gambar pendukung
 
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("products")
 }
-

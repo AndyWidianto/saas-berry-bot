@@ -1,9 +1,9 @@
 import { NodemailerService } from "@library/nodemailer/nodemailer.service";
-import { CreateMemberDto, CreateWorkspaceDto, UpdateWorkspaceDto } from "../../../../lib/dto/workspace.dto";
+import { CreateMemberDto, CreateWorkspaceDto, NotificationSettingType, UpdateWorkspaceDto } from "../../../../lib/dto/workspace.dto";
 import { PrismaService } from "../../../../lib/prisma/prisma.service";
 import { PayloadJWT, WorkspaceWithModels, KnowledgeChunk } from "../../../../lib/types";
 import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { AIModel, Prisma } from "@prisma/client";
+import { AIModel, Prisma, Workspace } from "@prisma/client";
 import InviteEmail from "@library/mail/templates/InviteMember";
 import React from "react";
 import { render } from "@react-email/components";
@@ -22,6 +22,24 @@ export class WorkspaceService {
         @Inject(CACHE_MANAGER) private cacheManager: Cache
     ) { }
 
+    async validateRoleWorkspace(workspaceId: string, userId: string) {
+        const keyWorkspaceValidate = `validate:${workspaceId}:${userId}`;
+        let existingWorkspace = await this.cacheManager.get<Workspace>(keyWorkspaceValidate);
+        if (!existingWorkspace) {
+            const findWorkspace = await this.prisma.workspace.findFirst({
+                where: { id: workspaceId }
+            });
+            if (!findWorkspace) {
+                throw new NotFoundException("Workspace not found");
+            }
+            existingWorkspace = findWorkspace;
+        }
+        if (existingWorkspace?.ownerId !== userId) {
+            throw new ForbiddenException("Akses ditolak. Anda bukan bagian dari workspace ini.")
+        }
+        this.cacheManager.set(keyWorkspaceValidate, existingWorkspace, 1000 * 60 * 5);
+        return existingWorkspace;
+    }
     generateSlug(name: string): string {
         if (!name) return '';
         return name
@@ -41,18 +59,21 @@ export class WorkspaceService {
         if (!findUser) {
             throw new ForbiddenException("user not found");
         }
-        const slug = this.generateSlug(data.name);
         const newWorkspace = await this.prisma.workspace.create({
             data: {
                 name: data.name,
-                slug: slug,
                 ownerId: user.id,
                 members: {
                     create: {
                         role: "OWNER",
                         userId: user.id
                     }
-                }
+                },
+                notificationSettings: {
+                    ai_escalation: true,
+                    billing_alert: true,
+                    team_update: true
+                } as Record<NotificationSettingType, boolean>
             }
         });
         return {
@@ -71,9 +92,14 @@ export class WorkspaceService {
         if (findWorkspace.ownerId !== user.id) {
             throw new ForbiddenException("you not allowed to update workspace");
         }
+        const { workingHours, notificationSettings, ...restDto } = data;
         const updatedWorkspace = await this.prisma.workspace.update({
-            where: { id: findWorkspace.id },
-            data: data
+            where: { id },
+            data: {
+                ...restDto,
+                ...(workingHours && { workingHours: workingHours as unknown as Prisma.InputJsonValue }),
+                ...(notificationSettings && { notificationSettings: notificationSettings as unknown as Prisma.InputJsonValue }),
+            },
         });
         await this.cacheManager.del(findWorkspace.id);
         return {
@@ -100,6 +126,7 @@ export class WorkspaceService {
                     },
                 }
                 : {}),
+            status: "ACTIVE"
         };
 
         const [members, totalWorkspaces] = await this.prisma.$transaction([
@@ -125,10 +152,11 @@ export class WorkspaceService {
                 where: whereCondition,
             }),
         ]);
+        const workspace = members.map(m => m.workspace);
         return {
             message: "successfully",
             total: totalWorkspaces,
-            data: members,
+            data: workspace,
             nextId: members.length > 0 ? members[members.length - 1].id : null,
         };
     }

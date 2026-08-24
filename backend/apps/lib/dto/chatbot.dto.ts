@@ -48,3 +48,12 @@ export class SendPublicMessageDto {
   @Type(() => UserMetaDataDto)
   user?: UserMetaDataDto;
 }
+
+export class CreateKnowledgeDto {
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  @MaxLength(4000, { message: 'Pesan terlalu panjang, maksimal 4000 karakter.' })
+  url?: string;
+
+}

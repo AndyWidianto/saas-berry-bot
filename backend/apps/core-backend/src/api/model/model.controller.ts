@@ -3,6 +3,8 @@ import { ModelService } from "./model.service";
 import { AuthGuard } from "@nestjs/passport";
 import { BuyTokenDto, CreateAIModelDto, UpdateAIModelDto } from "@library/dto/model.dto";
 import type { RequestAndPayload } from "@library/types";
+import { GetQueryBotDto } from "@library/dto/message-query.dto";
+import { SkipThrottle } from "@nestjs/throttler";
 
 
 
@@ -11,10 +13,18 @@ export class ModelController {
 
     constructor(private service: ModelService) { }
 
+    @SkipThrottle()
     @Get("aimodels")
     @UseGuards(AuthGuard("jwt"))
     async getAll(@Query() query: { search?: string, limit?: string, lastId?: string }) {
         return await this.service.getAll(query.search, query.search, query.lastId);
+    }
+
+    @SkipThrottle()
+    @Get("aimodels/active")
+    @UseGuards(AuthGuard("jwt"))
+    async getAllModelActive(@Query() query: { search?: string, limit?: string, lastId?: string }) {
+        return await this.service.getAllModelActive(query.search, query.search, query.lastId);
     }
 
     @Post("aimodels")
@@ -51,8 +61,14 @@ export class ModelController {
 
     @Get(":workspaceId/aimodels/ailogs")
     @UseGuards(AuthGuard("jwt"))
-    async getAiLogs(@Param("workspaceId") id: string) {
-        return await this.service.getAllAiLogs(id);
+    async getAiLogs(@Req() req: RequestAndPayload, @Param("workspaceId") id: string, @Query() query: GetQueryBotDto) {
+        return await this.service.getAllAiLogs(req.user, id, query);
+    }
+
+    @Get(":workspaceId/aimodels/ailogs/export")
+    @UseGuards(AuthGuard("jwt"))
+    async exportAILogs(@Req() req: RequestAndPayload, @Param("workspaceId") id: string, @Query() query: GetQueryBotDto) {
+        return await this.service.exportAILogs(req.user, id);
     }
 
 }

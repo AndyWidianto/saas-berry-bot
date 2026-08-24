@@ -15,7 +15,7 @@ export class TokenService {
             { id, email, role, name },
             {
                 secret: this.config.get<string>("SECRET_ACCESS_TOKEN"),
-                expiresIn: "17m"
+                expiresIn: "30m"
             }
         );
     }

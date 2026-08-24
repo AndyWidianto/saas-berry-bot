@@ -3,6 +3,7 @@ import { LogIn, Menu, MessageSquare, UserPlus, Zap } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation"
 import { Btn } from "./Button";
 import Link from "next/link";
+import LogoApp from "./LogoApp";
 
 
 export default function LandingNavbar() {
@@ -10,12 +11,7 @@ export default function LandingNavbar() {
     const router = useRouter();
     return (
         <nav className="w-full flex items-center justify-between px-6 md:px-10 py-4 border-b border-border/40 bg-background/60 backdrop-blur-md sticky top-0 z-50">
-            <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-md shadow-primary/20">
-                    <MessageSquare className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <span className="font-semibold text-sm tracking-tight text-foreground">Evolve WA</span>
-            </div>
+            <LogoApp />
             <div className="hidden md:flex items-center gap-7">
                 <Link
                     href="/home"
