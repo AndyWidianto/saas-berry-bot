@@ -79,6 +79,8 @@ export class WhatsappGatewayService implements OnModuleInit {
         const { version } = await fetchLatestBaileysVersion();
 
         const sock = makeWASocket({
+            pushName: "Berry Sweet",
+            browser: ["BerrySweet", "Chrome", "1.0.0"],
             version,
             auth: {
                 creds: state.creds,
