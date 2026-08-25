@@ -1,0 +1,45 @@
+# Stage 1: Build
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Copy dependency definitions & config
+COPY package*.json ./
+COPY nest-cli.json ./
+COPY tsconfig*.json ./
+
+# Copy folder prisma agar postinstall (prisma generate) berjalan lancar
+COPY prisma ./prisma/
+
+# Install SEMUA dependencies (termasuk devDependencies)
+RUN npm ci
+RUN npx prisma generate
+
+# Copy seluruh source code backend
+COPY . .
+
+# Argument & Build App NestJS
+ARG APP_NAME
+RUN npx nest build ${APP_NAME}
+
+# Hapus devDependencies agar ukuran node_modules mengecil untuk produksi
+RUN npm prune --production
+
+
+# Stage 2: Production
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ARG APP_NAME
+ENV APP_NAME=${APP_NAME}
+
+# Copy package.json
+COPY package*.json ./
+
+# Copy node_modules & hasil build dari Stage 1
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/prisma ./prisma
+
+COPY --from=builder /app/dist ./dist
+
+EXPOSE 3000
+CMD ["sh", "-c", "node dist/apps/${APP_NAME}/src/main.js"]

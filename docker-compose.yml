@@ -1,0 +1,127 @@
+version: '3.8'
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+
+services:
+  # ==========================================
+  # 1. Database PostgreSQL
+  # ==========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: andy
+      POSTGRES_PASSWORD: andy12345
+      POSTGRES_DB: saas_chatbot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  # ==========================================
+  # 2. Redis Cache / Queue
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    restart: always
+    command: redis-server --requirepass andy12345
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+
+  # ==========================================
+  # 3. Backend Core (Port 5000)
+  # ==========================================
+  backend-core:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.nest
+      args:
+        APP_NAME: core-backend
+    container_name: nest-backend-core
+    restart: always
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=5000
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+
+  # ==========================================
+  # 4. WhatsApp Gateway (Port 4000)
+  # ==========================================
+  whatsapp-gateway:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.nest
+      args:
+        APP_NAME: whatsapp-gateway
+    container_name: nest-whatsapp-gateway
+    restart: always
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=4000
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+
+  # ==========================================
+  # 5. Message Gateway (Port 10000)
+  # ==========================================
+  message-gateway:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.nest
+      args:
+        APP_NAME: message-gateway
+    container_name: nest-message-gateway
+    restart: always
+    ports:
+      - "10000:10000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=10000
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+
+  # ==========================================
+  # 6. Frontend Next.js (Port 3000)
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.next
+    container_name: nextjs-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BASE_URL=http://core-backend:5000/api
+      - NEXT_PUBLIC_BASE_URL_MESSAGE_GATEWAY=
+      - NEXT_PUBLIC_SOCKET_URL=ws://core-backend:5000
+    networks:
+      - app-network

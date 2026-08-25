@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { Lock, Eye, EyeOff, Check, X, ArrowRight, ShieldCheck, Bot, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card } from '../components/Cards';
@@ -10,7 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import useAxios from '@/lib/axios-service';
 import { toast } from 'sonner';
 
-export default function ResetPasswordPage() {
+ function ResetPasswordContent() {
     const { AxiosPublic } = useAxios();
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -224,5 +224,13 @@ export default function ResetPasswordPage() {
             </div>
 
         </div>
+    );
+}
+
+export default function ResetPasswordPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen w-full flex items-center justify-center text-sm">Loading...</div>}>
+            <ResetPasswordContent />
+        </Suspense>
     );
 }
