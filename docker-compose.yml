@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   app-network:
     driver: bridge
@@ -13,19 +11,19 @@ services:
   # 1. Database PostgreSQL
   # ==========================================
   postgres:
-      image: pgvector/pgvector:pg16  # <-- Ganti image ke pgvector
-      container_name: postgres-db
-      restart: always
-      environment:
-        POSTGRES_USER: andy
-        POSTGRES_PASSWORD: andy12345
-        POSTGRES_DB: saas_chatbot
-      ports:
-        - "5433:5432"
-      volumes:
-        - postgres_data:/var/lib/postgresql/data
-      networks:
-        - app-network
+    image: pgvector/pgvector:pg16
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: andy
+      POSTGRES_PASSWORD: andy12345
+      POSTGRES_DB: saas_chatbot
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
 
   # ==========================================
   # 2. Redis Cache / Queue
@@ -49,6 +47,7 @@ services:
       dockerfile: Dockerfile.nest
       args:
         APP_NAME: core-backend
+    image: andywidianto12345/saas-backend-core:latest # <-- Ditambahkan
     container_name: nest-backend-core
     restart: always
     ports:
@@ -72,6 +71,7 @@ services:
       dockerfile: Dockerfile.nest
       args:
         APP_NAME: whatsapp-gateway
+    image: andywidianto12345/saas-whatsapp-gateway:latest # <-- Ditambahkan
     container_name: nest-whatsapp-gateway
     restart: always
     ports:
@@ -95,6 +95,7 @@ services:
       dockerfile: Dockerfile.nest
       args:
         APP_NAME: message-gateway
+    image: andywidianto12345/saas-message-gateway:latest # <-- Ditambahkan
     container_name: nest-message-gateway
     restart: always
     ports:
@@ -116,6 +117,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.next
+    image: andywidianto12345/saas-frontend:latest # <-- Ditambahkan
     container_name: nextjs-frontend
     restart: always
     ports:
@@ -123,6 +125,6 @@ services:
     environment:
       - NODE_ENV=production
     env_file:
-    - ./frontend/.env
+      - ./frontend/.env
     networks:
       - app-network
