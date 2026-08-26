@@ -6,12 +6,13 @@ import type { RequestAndPayload } from "../../../../lib/types";
 import { AuthGuard } from "@nestjs/passport";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { SkipThrottle, Throttle } from "@nestjs/throttler";
+import { ConfigService } from "@nestjs/config";
 
 
 
 @Controller("api")
 export class AuthController {
-    constructor(private readonly service: AuthService) { }
+    constructor(private readonly service: AuthService, private configService: ConfigService) { }
 
 
     @Throttle({ default: { limit: 3, ttl: 1000 * 60 }})
@@ -73,7 +74,8 @@ export class AuthController {
             sameSite: 'strict', // strict
             maxAge: 7 * 24 * 60 * 60 * 1000,
         });
-        res.redirect(`http://localhost:3000/auth/success?token=${accessToken}`);
+        const baseUrlFrontend = this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
+        res.redirect(`${baseUrlFrontend}/auth/success?token=${accessToken}`);
     }
 
     @Throttle({ default: { limit: 3, ttl: 1000 * 60 * 3 }})
