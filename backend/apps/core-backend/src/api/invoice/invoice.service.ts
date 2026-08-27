@@ -43,6 +43,39 @@ export class InvoiceService {
         }
     }
 
+    async getAllInvoices(user: PayloadJWT, workspaceId: string, lastId?: string, limitStr?: string) {
+        await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
+        const limit = limitStr ? Number(limitStr) : 10;
+        const query: Prisma.InvoiceFindManyArgs = {
+            where: {
+                workspaceId, status: {
+                    in: ["CANCELLED", "PENDING", "REFUNDED"]
+                }
+            },
+            ...lastId ? {
+                cursor: { id: lastId },
+                skip: 1
+            } : {},
+            take: limit,
+            orderBy: [
+                { id: "desc" },
+                { createdAt: "desc" }
+            ]
+        };
+        const [invoices, totalInvoice] = await this.prisma.$transaction([
+            this.prisma.invoice.findMany(query),
+            this.prisma.invoice.count({
+                where: query.where
+            })
+        ]);
+        return {
+            data: invoices,
+            totalPage: Math.ceil(totalInvoice / limit),
+            total: totalInvoice,
+            nextId: invoices.length > 0 ? invoices[invoices.length - 1].id : null
+        }
+    }
+
     async import(user: PayloadJWT, workspaceId: string, lastId?: string) {
         const workspace = await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
         const query: Prisma.CreditLedgerFindManyArgs = {

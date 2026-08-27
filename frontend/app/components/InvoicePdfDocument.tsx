@@ -1,11 +1,11 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { Invoice } from '@/lib/types';
+import { CreditLedger } from '@/lib/types';
 
 
 interface InvoicePdfDocumentProps {
   workspaceId: string;
-  invoices: Invoice[];
+  invoices: CreditLedger[];
 }
 
 // Styling menggunakan stylesheet bawaan @react-pdf/renderer

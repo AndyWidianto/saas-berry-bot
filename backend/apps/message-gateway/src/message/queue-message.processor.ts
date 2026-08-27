@@ -195,7 +195,7 @@ export class MessageProcessor extends WorkerHost {
                     }),
                     this.prisma.creditLedger.create({
                         data: {
-                            amount: totalCostEmbedding.totalCost,
+                            amount: -totalCostEmbedding.totalCost,
                             tokensUsed: totalCostEmbedding.totalUsedToken,
                             description: `Penggunaan RAG Embedding (${totalCostEmbedding.totalUsedToken} token)`,
                             type: CreditTransactionType.USAGE_RAG,
@@ -264,21 +264,21 @@ export class MessageProcessor extends WorkerHost {
                 this.prisma.creditLedger.createMany({
                     data: [
                         ...(totalCostReWrite ? [{
-                            amount: totalCostReWrite.totalCost,
+                            amount: -totalCostReWrite.totalCost,
                             tokensUsed: totalCostReWrite.totalUsedToken,
                             description: `Query Rewrite Optimization (${totalCostReWrite.totalUsedToken} token)`,
                             type: CreditTransactionType.USAGE_REWRITE,
                             workspaceId: workspaceId,
                         }] : []),
                         {
-                            amount: totalCostEmbedding.totalCost,
+                            amount: -totalCostEmbedding.totalCost,
                             tokensUsed: totalCostEmbedding.totalUsedToken,
                             description: `Penggunaan RAG Embedding (${totalCostEmbedding.totalUsedToken} token)`,
                             type: CreditTransactionType.USAGE_RAG,
                             workspaceId,
                         },
                         {
-                            amount: totalCostChatting.totalCost + totalCostOutputChat.totalCost,
+                            amount: -totalCostChatting.totalCost + totalCostOutputChat.totalCost,
                             tokensUsed: totalCostChatting.totalUsedToken + totalCostOutputChat.totalUsedToken,
                             description: `Layanan AI Chat Response (${totalCostChatting.totalUsedToken + totalCostOutputChat.totalUsedToken} token)`,
                             type: CreditTransactionType.USAGE_CHAT,

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import useAuthStore from "@/lib/store/authStore";
 import { useIsMobile } from "@/lib/hooks/UseIsMobile";
 import { SocketProvider } from "@/lib/context/SocketContext";
+import StepGuideModal from "@/app/components/DocModal";
 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -46,6 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <SocketProvider>
+            <StepGuideModal />
             <div className="flex h-screen bg-background overflow-hidden font-[Inter,system-ui,sans-serif]">
                 <AppSidebar
                     page={page}

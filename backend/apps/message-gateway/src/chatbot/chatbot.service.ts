@@ -147,7 +147,7 @@ export class ChatbotService {
                 }),
                 this.prisma.creditLedger.create({
                     data: {
-                        amount: totalCostInputEmbed.totalCost,
+                        amount: -totalCostInputEmbed.totalCost,
                         tokensUsed: totalCostInputEmbed.totalUsedToken,
                         description: `Penggunaan RAG Embedding (${totalCostInputEmbed.totalUsedToken} token)`,
                         type: CreditTransactionType.USAGE_RAG,
@@ -288,21 +288,21 @@ export class ChatbotService {
                 name: "create-many-credit-ledger",
                 data: [
                     ...(tokens.rewrite ? [{
-                        amount: tokens.rewrite.totalCost,
+                        amount: -tokens.rewrite.totalCost,
                         description: `Query Rewrite Optimization (${tokens.rewrite.totalUsedToken} token)`,
                         type: CreditTransactionType.USAGE_REWRITE,
                         workspaceId,
                         tokensUsed: tokens.rewrite.totalUsedToken
                     }] : []),
                     {
-                        amount: tokens.embedding.totalCost,
+                        amount: -tokens.embedding.totalCost,
                         description: `Penggunaan RAG Embedding (${tokens.embedding.totalUsedToken} token)`,
                         type: CreditTransactionType.USAGE_RAG,
                         workspaceId,
                         tokensUsed: tokens.embedding.totalUsedToken
                     },
                     {
-                        amount: tokens.chatInput.totalCost + tokens.chatOutput.totalCost,
+                        amount: -tokens.chatInput.totalCost + tokens.chatOutput.totalCost,
                         description: `Layanan AI Chat Response (${tokens.chatInput.totalUsedToken + tokens.chatOutput.totalUsedToken} token)`,
                         type: CreditTransactionType.USAGE_CHAT,
                         workspaceId,

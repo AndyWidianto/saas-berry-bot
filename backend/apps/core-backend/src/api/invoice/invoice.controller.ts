@@ -8,15 +8,15 @@ import type { RequestAndPayload } from "@library/types";
 
 
 
-@Controller("api/:workspaceId/invoices")
+@Controller("api/:workspaceId")
 export class InvoiceController {
     constructor(
         private service: InvoiceService
-    ) {}
+    ) { }
 
 
     @SkipThrottle()
-    @Get()
+    @Get("creditledger")
     @UseGuards(AuthGuard("jwt"))
     async getAll(
         @Req() req: RequestAndPayload,
@@ -25,7 +25,17 @@ export class InvoiceController {
         return await this.service.getAll(req.user, workspaceId, query.lastId, query.limit);
     }
 
-    @Get("import")
+    @SkipThrottle()
+    @Get("invoices")
+    @UseGuards(AuthGuard("jwt"))
+    async getAllInvoice(
+        @Req() req: RequestAndPayload,
+        @Param("workspaceId") workspaceId: string,
+        @Query() query: { lastId?: string, limit?: string }) {
+        return await this.service.getAllInvoices(req.user, workspaceId, query.lastId, query.limit);
+    }
+
+    @Get("invoices/import")
     @UseGuards(AuthGuard("jwt"))
     async import(@Req() req: RequestAndPayload, @Param("workspaceId") workspaceId: string, @Query() query: { lastId?: string, limit?: string }) {
         return await this.service.import(req.user, workspaceId, query.lastId);

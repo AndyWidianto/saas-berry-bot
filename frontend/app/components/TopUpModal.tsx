@@ -5,9 +5,10 @@ import { X, Wallet, CreditCard, QrCode, ArrowRight } from 'lucide-react';
 interface TopUpModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCheckout?: (nominal: number) => void;
 }
 
-export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
+export default function TopUpModal({ isOpen, onClose, onCheckout }: TopUpModalProps) {
   const [selectedAmount, setSelectedAmount] = useState<number | null>(10);
   const [customAmount, setCustomAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("qris");
@@ -132,6 +133,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
           <button
             type="button"
             disabled={finalAmount <= 0}
+            onClick={() => onCheckout?.(finalAmount)}
             className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none text-white text-sm font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all"
           >
             Bayar Sekarang
