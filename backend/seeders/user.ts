@@ -15,13 +15,13 @@ export async function userSeeders() {
       role: UserRole.user,
       username: "andy",
     },
-    {
-      name: "Andy",
-      email: "andywidianto56@gmail.com",
-      password: "andy12345",
-      role: UserRole.user,
-      username: "andywidianto",
-    },
+    // {
+    //   name: "Andy",
+    //   email: "andywidianto56@gmail.com",
+    //   password: "andy12345",
+    //   role: UserRole.user,
+    //   username: "andywidianto",
+    // },
     {
       name: "Admin",
       email: "admin1234@gmail.com",

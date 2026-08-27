@@ -7,7 +7,11 @@ import { SendMessageDto } from "@library/dto/message.dto";
 import { WAMessage, WAPresence } from "@whiskeysockets/baileys";
 
 
-@Processor("whatsapp-outgoing-queue")
+@Processor("whatsapp-outgoing-queue", {
+    lockDuration: 60000, // 👈 Naikkan batas lock dari 30s ke 60s (60000 ms)
+    lockRenewTime: 15000, // Perbarui kunci tiap 15 detik
+    concurrency: 5,
+})
 export class WhatsappMessageProcessor extends WorkerHost implements OnModuleInit {
     private secretKey = "";
     private readonly logger = new Logger();
@@ -28,8 +32,8 @@ export class WhatsappMessageProcessor extends WorkerHost implements OnModuleInit
         try {
             switch (job.name) {
                 case "send-message":
-                    const { instanceName, target, message } = job.data as SendMessageDto;
-                    if (data.type === "text") {
+                    const { instanceName, target, message, type } = data as SendMessageDto;
+                    if (type === "text") {
                         await this.whatsappService.sendMessage(this.secretKey, { instanceName: instanceName, to: target, text: message });
                     }
                     break;
@@ -37,7 +41,7 @@ export class WhatsappMessageProcessor extends WorkerHost implements OnModuleInit
                     const dataPrecence: { instanceName: string, status: WAPresence, target: string } = job.data;
                     await this.whatsappService.precenceUpdate(dataPrecence.instanceName, dataPrecence.status, dataPrecence.target);
                     break;
-                case "read-message": 
+                case "read-message":
                     await this.whatsappService.readMessage(data.instanceName, data.data);
                 default:
                     break;

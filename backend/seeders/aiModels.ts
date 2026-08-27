@@ -5,21 +5,21 @@ const prisma = new PrismaService();
 
 export async function AiModels() {
   const models: Prisma.AIModelCreateInput[] = [
-    {
-      name: "Gemini 2.5 Flash-Lite",
-      modelCode: "gemini-2.5-flash-lite",
-      provider: ProviderAI.GOOGLE,
-      isChat: true,
-      isEmbedding: false,
-      isVision: true,
-      isAudio: true,
-      contextWindow: 1_048_576,
-      maxOutputToken: 65_536,
-      inputPricePer1M: 0.10,   // $0.075 per 1M token (Base: $0.075)
-      outputPricePer1M: 0.40,   // $0.30 per 1M token (Base: $0.30)
-      tenantMarkup: 2,
-      isActive: true,
-    },
+    // {
+    //   name: "Gemini 2.5 Flash-Lite",
+    //   modelCode: "gemini-2.5-flash-lite",
+    //   provider: ProviderAI.GOOGLE,
+    //   isChat: true,
+    //   isEmbedding: false,
+    //   isVision: true,
+    //   isAudio: true,
+    //   contextWindow: 1_048_576,
+    //   maxOutputToken: 65_536,
+    //   inputPricePer1M: 0.10,   // $0.075 per 1M token (Base: $0.075)
+    //   outputPricePer1M: 0.40,   // $0.30 per 1M token (Base: $0.30)
+    //   tenantMarkup: 2,
+    //   isActive: true,
+    // },
     {
       name: "Gemini 2.5 Flash",
       modelCode: "gemini-2.5-flash",

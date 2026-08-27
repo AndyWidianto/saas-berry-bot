@@ -69,7 +69,7 @@ export class WhatsappGatewayService implements OnModuleInit {
         }
     }
     async createInstance(workspaceId: string, instanceName: string, settings?: WhatsappBayliesSetting | null) {
-        const authFolder = path.join('/', 'var', 'whatsapp_baileys', `auth_info_baileys_${instanceName}`);
+        const authFolder = path.join('/', 'var', 'berry', 'whatsapp_baileys', `auth_info_baileys_${instanceName}`);
         if (!fs.existsSync(authFolder)) {
             fs.mkdirSync(authFolder, { recursive: true });
             console.log(`📁 Folder auth berhasil dibuat di: ${authFolder}`);
@@ -235,7 +235,7 @@ export class WhatsappGatewayService implements OnModuleInit {
             }
         }
         delete CACHE_RAM_SOCK_SESSION[instanceName];
-        const pathname = path.join('/', 'var', 'whatsapp_baileys', `auth_info_baileys_${instanceName}`);
+        const pathname = path.join('/', 'var', 'berry', 'whatsapp_baileys', `auth_info_baileys_${instanceName}`);
         if (fs.existsSync(pathname)) {
             try {
                 fs.rmSync(pathname, { recursive: true, force: true });
