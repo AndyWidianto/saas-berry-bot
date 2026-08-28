@@ -90,7 +90,7 @@ export default function TopUpModal({ isOpen, onClose, onCheckout }: TopUpModalPr
           <div className="space-y-2">
             {[
               { id: 'qris', name: 'QRIS / E-Wallet', desc: 'Dana, OVO, GoPay, ShopeePay', icon: QrCode },
-              { id: 'card', name: 'Credit / Debit Card', desc: 'Visa, Mastercard, JCB', icon: CreditCard },
+              //{ id: 'card', name: 'Credit / Debit Card', desc: 'Visa, Mastercard, JCB', icon: CreditCard },
             ].map((method) => {
               const Icon = method.icon;
               return (

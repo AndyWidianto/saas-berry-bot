@@ -334,7 +334,6 @@ export default function IntegrationsPage() {
       );
 
       if (data.instanceName === integration?.instanceName) {
-        console.log("testing......");
         close();
       }
     };

@@ -23,7 +23,6 @@ export default function TabSettingChatbot({ workspaceId }: { workspaceId: string
         setLoading(true);
         try {
             const res = await AxiosPrivate.get(`/aimodels/active`);
-            console.log("models: ", res.data);
             const result = res.data;
             setAIModels((result.data as AIModel[]) || []);
         } catch (err) {

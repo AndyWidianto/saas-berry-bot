@@ -106,7 +106,6 @@ export default function AnalyticsPage() {
         try {
             const res = await AxiosPrivate.get(`/${workspaceId}/dashboard/analytics`);
             const result = res.data;
-            console.log(result);
             setDashboarAnalytics(result);
         } catch (err) {
             console.error("fetch error: ", err);

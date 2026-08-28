@@ -24,7 +24,6 @@ export default function TabKnowledge({ workspaceId }: { workspaceId: string }) {
             const res = await AxiosPrivate.get(`/${workspaceId}/knowledges`);
             const result: ResponseApi = res.data;
             const data: Knowledge[] = result.data;
-            console.log(data);
             setKnowledgeItems(data);
         } catch (err) {
             console.error("Fetch error: ", err);

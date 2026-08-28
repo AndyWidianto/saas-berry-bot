@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Bot, MessageSquare, Lock, Mail, Eye, EyeOff, ArrowRight, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
-import useAxios from "@/lib/axios-service";
+import useAxios, { baseUrl } from "@/lib/axios-service";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import axios from "axios";
@@ -40,7 +40,7 @@ export default function LoginPage() {
         }
     };
     const handleOAuthLogin = (provider: 'google' | 'github') => {
-        window.location.href = `http://localhost:5000/api/auth/${provider}`;
+        window.location.href = `${baseUrl}/auth/${provider}`;
     };
 
     return (

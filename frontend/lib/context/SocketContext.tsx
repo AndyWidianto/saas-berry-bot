@@ -72,7 +72,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     socketInstance.on('connect', () => {
-      console.log('⚡ Socket connected globally:', socketInstance.id);
       setIsConnected(true);
     });
 
@@ -87,14 +86,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         socketInstance.auth = { token: `Bearer ${newAccessToken}` };
         socketInstance.connect();
       } else {
-        // Jika refresh token juga gagal, putuskan koneksi
+        // Jika r      console.log('⚡ Socket connected globally:', socketInstance.id);efresh token juga gagal, putuskan koneksi
         socketInstance.disconnect();
       }
     });
-
-    socketInstance.on("welcome", (data) => {
-      console.log("Data: ", data);
-    })
 
     socketInstance.on('disconnect', (reason) => {
       console.log('❌ Socket disconnected. Reason:', reason);

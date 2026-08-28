@@ -9,11 +9,11 @@ export async function userSeeders() {
 
   const users = [
     {
-      name: "Andy Widianto",
-      email: "andy@gmail.com",
-      password: "andy12345",
+      name: "Preview",
+      email: "preview@gmail.com",
+      password: "preview1234&",
       role: UserRole.user,
-      username: "andy",
+      username: "preview",
     },
     // {
     //   name: "Andy",
@@ -22,13 +22,13 @@ export async function userSeeders() {
     //   role: UserRole.user,
     //   username: "andywidianto",
     // },
-    {
-      name: "Admin",
-      email: "admin1234@gmail.com",
-      password: "andy12345",
-      role: UserRole.admin,
-      username: "admin1234",
-    }
+    // {
+    //   name: "Admin",
+    //   email: "admin1234@gmail.com",
+    //   password: "andy12345",
+    //   role: UserRole.admin,
+    //   username: "admin1234",
+    // }
   ];
 
   for (const user of users) {

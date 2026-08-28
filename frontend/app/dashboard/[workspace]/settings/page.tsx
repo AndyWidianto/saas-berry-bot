@@ -141,7 +141,6 @@ export default function SettingsPage() {
       const res = await AxiosPrivate.patch(`/workspaces/${workspaceId}`, formDataWorkspace);
       const result = res.data;
       setWorkspace(result.data);
-      console.log(result);
     } catch (err) {
       console.error("Fetch error: ", err);
       throw err;
@@ -159,7 +158,6 @@ export default function SettingsPage() {
         }
       });
       const result = res.data;
-      console.log(result);
       setUser(result.data);
     } catch (err) {
       console.error("Fetch error: ", err);

@@ -7,7 +7,7 @@ interface UseAxiosReturn {
     AxiosPublic: AxiosInstance;
 }
 
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8080";
+export const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8080";
 
 export const AxiosPrivate = axios.create({
     baseURL: baseUrl,

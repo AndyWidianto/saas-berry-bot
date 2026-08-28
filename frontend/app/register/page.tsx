@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Bot, MessageSquare, Lock, Mail, User, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import cn from "../components/ClassName";
-import useAxios from "@/lib/axios-service";
+import useAxios, { baseUrl } from "@/lib/axios-service";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import axios from "axios";
@@ -122,7 +122,7 @@ export default function RegisterPage() {
     };
 
     const handleOAuthLogin = (provider: 'google' | 'github') => {
-        window.location.href = `http://localhost:5000/api/auth/${provider}`;
+        window.location.href = `${baseUrl}/auth/${provider}`;
     };
 
     return (

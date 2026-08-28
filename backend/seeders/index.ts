@@ -5,9 +5,9 @@ import { userSeeders } from "./user";
 
 
 async function main() {
-    await userSeeders();
+    //await userSeeders();
     await AiModels();
-    await createArticles();
+    //await createArticles();
 }
 
 main();

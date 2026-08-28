@@ -52,6 +52,8 @@ services:
     restart: always
     ports:
       - "5000:5000"
+    volumes: 
+      - /var/berry/images:/var/berry/images
     env_file:
       - ./backend/.env
     environment:
@@ -83,6 +85,8 @@ services:
     depends_on:
       - postgres
       - redis
+    volumes:
+          - /var/berry/whatsapp_baileys:/var/berry/whatsapp_baileys
     networks:
       - app-network
 
