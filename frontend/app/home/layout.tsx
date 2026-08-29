@@ -6,7 +6,7 @@ import LogoApp from "../components/LogoApp";
 export default function LandingLayout({ children }: { children: React.ReactNode }) {
 
     return (
-        <div>
+        <div className="scroll-smooth">
             <LandingNavbar />
             {children}
             <footer className="border-t border-border/40">
