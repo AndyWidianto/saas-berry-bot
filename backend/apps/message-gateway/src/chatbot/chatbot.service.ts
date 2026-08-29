@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Inject, ForbiddenException, NotFoundException, HttpException, Logger } from "@nestjs/common";
+import { Injectable, BadRequestException, Inject, ForbiddenException, NotFoundException, HttpException, Logger, UnprocessableEntityException, BadGatewayException } from "@nestjs/common";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import type { Cache } from "cache-manager";
 import { BillingService } from "@library/billing/billing.service";
@@ -9,7 +9,7 @@ import { GeminiService } from "@library/agent/gemini.service";
 import { WorkspaceService } from "@core/api/workspace/workspace.service";
 import { KnowledgeService } from "@core/api/knowledge/knowledge.service";
 import { KnowledgeChunk, WorkspaceWithModels } from "@library/types";
-import { AIModel, CreditLedger, CreditTransactionType, Message, Prisma } from "@prisma/client";
+import { AIModel, CreditLedger, CreditTransactionType, Message, Prisma, Workspace } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { CreateKnowledgeDto, SendPublicMessageDto } from "@library/dto/chatbot.dto";
 import { InjectQueue } from "@nestjs/bullmq";
@@ -112,21 +112,12 @@ export class ChatbotService {
         let message = data.message;
         let totalCostReWrite: { totalCost: number, totalUsedToken: number } | null = null;
         if (workspace?.rewrite) {
-            const response = await this.reWrite(chatModel, message, messages);
+            const response = await this.reWrite(workspace, chatModel, message, messages);
             totalCostReWrite = {
                 totalCost: response.totalCost,
                 totalUsedToken: response.totalToken
             }
             message = response.text;
-
-            if (!response.success) {
-                await this.notifQueue.add("notif-model-error", {
-                    workspaceId,
-                    model: chatModel,
-                    ownerId: workspace.ownerId
-                });
-                return;
-            }
         }
         //Proses RAG Knowledge & Prompt Engineering
         const { context: chunks, totalCostInput: totalCostInputEmbed } = await this.knowledgeService.getChunks(workspaceId, message, embeddingModel);
@@ -190,7 +181,7 @@ export class ChatbotService {
                 chatModel
             ),
             this.deductWorkspaceBalance(workspaceId, totalCost),
-            this.handleSpamProtection(data.sessionId, spam),
+            //this.handleSpamProtection(data.sessionId, spam),
         ]);
 
         //Update Cache
@@ -302,7 +293,7 @@ export class ChatbotService {
                         tokensUsed: tokens.embedding.totalUsedToken
                     },
                     {
-                        amount: -tokens.chatInput.totalCost + tokens.chatOutput.totalCost,
+                        amount: -(tokens.chatInput.totalCost + tokens.chatOutput.totalCost),
                         description: `Layanan AI Chat Response (${tokens.chatInput.totalUsedToken + tokens.chatOutput.totalUsedToken} token)`,
                         type: CreditTransactionType.USAGE_CHAT,
                         workspaceId,
@@ -539,7 +530,7 @@ export class ChatbotService {
 
 
 
-    async reWrite(model: AIModel | null, message: string, messages: Message[] = []) {
+    async reWrite(workspace: Workspace, model: AIModel | null, message: string, messages: Message[] = []) {
         if (!model) {
             throw new NotFoundException("Model not found");
         }
@@ -553,9 +544,9 @@ export class ChatbotService {
         let costOutput = {
             totalCost: 0,
             totalUsedToken: 0
-        }
-        let success = true;
+        };
         let activeMessages = [...messages];
+
         try {
             if (model.provider === "GOOGLE") {
                 const history = this.gemini.sanitizeHistory(activeMessages);
@@ -571,16 +562,28 @@ export class ChatbotService {
                 const { text, cleanedText } = await this.gemini.chatbot(model.modelCode, message, systemInstruction, history);
                 responseAI = cleanedText;
                 costOutput = await this.billingService.totalCostOutput(text, model);
-            }
-            if (model.provider === "OPENAI") {
-                // Panggil service OpenAI yang sesuai pada proyek Anda
-                const history = this.openai.sanitizeHistory(activeMessages)
+            } else if (model.provider === "OPENAI") {
+                const history = this.openai.sanitizeHistory(activeMessages);
                 const response = await this.openai.chatbot(model.modelCode, message, systemInstruction, history);
                 responseAI = response.rawText;
+                costOutput = await this.billingService.totalCostOutput(responseAI, model);
+            } else {
+                await this.notifQueue.add("notif-model-error", {
+                    workspaceId: workspace.id,
+                    model: model,
+                    ownerId: workspace.ownerId
+                });
+                throw new UnprocessableEntityException(`Provider ${model.provider} tidak didukung`);
             }
         } catch (err) {
-            success = false;
-            console.error("Error: ", err);
+            console.error(`[Rewrite AI Error] Provider: ${model.provider}, Error:`, err);
+
+            // Lempar HTTP Status Code yang sesuai ke Controller / Client
+            throw new BadGatewayException({
+                statusCode: 502,
+                code: 'AI_PROVIDER_ERROR',
+                message: `Gagal memproses rewrite dari provider ${model.provider}. Silakan coba beberapa saat lagi.`
+            });
         }
 
         // Pembersihan spasi / newline berlebih pada hasil rewrite
@@ -594,7 +597,7 @@ export class ChatbotService {
         );
 
         return {
-            success,
+            success: true,
             text: responseAI,
             totalToken: totalCostInput.totalUsedToken + costOutput.totalUsedToken,
             totalTokenInput: totalCostInput.totalUsedToken,

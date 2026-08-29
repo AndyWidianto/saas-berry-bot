@@ -157,7 +157,7 @@ export class MessageProcessor extends WorkerHost {
             let totalCostReWrite: { totalCost: number, totalUsedToken: number } | null = null;
             let queryRewrite = "";
             if (workspace?.rewrite) {
-                const result = await this.chatbotService.reWrite(chatModel, message, messages);
+                const result = await this.chatbotService.reWrite(workspace, chatModel, message, messages);
                 if (!result.success) {
                     await this.notifQueue.add("notif-model-error", {
                         workspaceId,
@@ -278,7 +278,7 @@ export class MessageProcessor extends WorkerHost {
                             workspaceId,
                         },
                         {
-                            amount: -totalCostChatting.totalCost + totalCostOutputChat.totalCost,
+                            amount: -(totalCostChatting.totalCost + totalCostOutputChat.totalCost),
                             tokensUsed: totalCostChatting.totalUsedToken + totalCostOutputChat.totalUsedToken,
                             description: `Layanan AI Chat Response (${totalCostChatting.totalUsedToken + totalCostOutputChat.totalUsedToken} token)`,
                             type: CreditTransactionType.USAGE_CHAT,

@@ -117,7 +117,7 @@ export class BillingService {
 
         const kursRupiah = Number(this.configService.get<string>("KURS_RUPIAH")) || 17900;
         const outputPer1M = model.outputPricePer1M;
-        const MARKUP_FACTOR = model.tenantMarkup || 1; // Fallback ke 1 jika markup kosong
+        const MARKUP_FACTOR = model.tenantMarkup ?? 1; // Fallback ke 1 jika markup kosong
 
         const totalCostUSD = (totalTokens / 1_000_000) * (outputPer1M * MARKUP_FACTOR);
         const totalCostIDR = totalCostUSD * kursRupiah;
@@ -133,7 +133,7 @@ export class BillingService {
         const amountBalance = BigNumber(balance.amount.toString());
         const outputPer1M = aiModel.outputPricePer1M;
         const inputPer1M = aiModel.inputPricePer1M;
-        const totalCostUSD = (outputPer1M + inputPer1M + (aiModel2 ? aiModel.inputPricePer1M + aiModel.outputPricePer1M : 0)) * this.MARKUP_FACTOR;
+        const totalCostUSD = (outputPer1M + inputPer1M + (aiModel2 ? aiModel.inputPricePer1M + aiModel.outputPricePer1M : 0)) * 1;
         const totalCostIDR = totalCostUSD * kursRupiah;
         if (amountBalance.isLessThan(totalCostIDR)) {
             return false;
