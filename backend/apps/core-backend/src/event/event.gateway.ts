@@ -8,7 +8,7 @@ import { Server, Socket } from "socket.io";
 
 @WebSocketGateway({
     cors: {
-        origin: '*', // Izinkan sementara untuk testing agar tidak kena CORS error
+        origin: process.env.CORE_ORIGIN, // Izinkan sementara untuk testing agar tidak kena CORS error
         credentials: true,
     },
 })

@@ -7,6 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const whitelist = [
     process.env.CORE_ORIGIN,
+    process.env.CORE_ORIGIN_ADMIN
   ];
   const app = await NestFactory.create(AppModule);
   const config = new DocumentBuilder()

@@ -68,7 +68,7 @@ export class WhatsappGatewayService implements OnModuleInit {
             this.logger.error(`Gagal update: ${error?.message}`);
         }
     }
-    async createInstance(workspaceId: string, instanceName: string, settings?: WhatsappBayliesSetting | null) {
+    async createInstance(workspaceId: string, instanceName: string, settings: WhatsappBayliesSetting | null) {
         const authFolder = path.join('/', 'var', 'berry', 'whatsapp_baileys', `auth_info_baileys_${instanceName}`);
         if (!fs.existsSync(authFolder)) {
             fs.mkdirSync(authFolder, { recursive: true });
@@ -128,12 +128,12 @@ export class WhatsappGatewayService implements OnModuleInit {
 
                 if (shouldReconnect) {
                     this.logger.log(`🔄 [${instanceName}] Membuka instance baru...`);
-                    await this.createInstance(workspaceId, instanceName);
+                    await this.createInstance(workspaceId, instanceName, settings);
                 } else {
                     this.logger.error(`❌ [${instanceName}] Perangkat keluar (Logged Out).`);
                     try {
                         await this.deleteInstance(this.whatsappSecret, instanceName);
-                        await this.createInstance(workspaceId, instanceName);
+                        await this.createInstance(workspaceId, instanceName, settings);
                         this.logger.log(`🗑️ [${instanceName}] Folder sesi lama berhasil dihapus bersih. Siap untuk QR baru!`);
                     } catch (error) {
                         this.logger.error(`⚠️ Gagal menghapus folder sesi [${instanceName}]:`, error);
@@ -152,7 +152,6 @@ export class WhatsappGatewayService implements OnModuleInit {
             for (const msg of m.messages) {
                 if (msg.key.remoteJid === 'status@broadcast') return;
                 if (!msg.key.fromMe) {
-                    console.log(msg);
                     const remote = msg.key.remoteJidAlt;
                     // const isBlocked = await this.cacheManager.get<boolean>(`block-${remote}`);
                     // if (isBlocked) return;
@@ -162,7 +161,6 @@ export class WhatsappGatewayService implements OnModuleInit {
                         workspaceId,
                         to: remote,
                         message: msg,
-                        settings: settings
                     }, {
                         removeOnComplete: true,
                         attempts: 3
@@ -198,7 +196,13 @@ export class WhatsappGatewayService implements OnModuleInit {
     async handleCreate(secretKey: string, workspaceId: string, instanceName: string) {
         this.validateSecret(secretKey);
         try {
-            await this.createInstance(workspaceId, instanceName);
+            const integration = await this.prisma.integration.findFirst({
+                where: { workspaceId, instanceName }
+            });
+            if (!integration) {
+                throw new NotFoundException("Device tidak ditemukan");
+            }
+            await this.createInstance(workspaceId, instanceName, (integration as any).settings as WhatsappBayliesSetting);
             return {
                 message: "successfully Create instance whatsapp baileys"
             }

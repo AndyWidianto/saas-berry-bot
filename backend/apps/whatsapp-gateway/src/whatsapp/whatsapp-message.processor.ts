@@ -32,16 +32,19 @@ export class WhatsappMessageProcessor extends WorkerHost implements OnModuleInit
         try {
             switch (job.name) {
                 case "send-message":
+                    this.logger.log("Mengirim pesan baru...");
                     const { instanceName, target, message, type } = data as SendMessageDto;
                     if (type === "text") {
                         await this.whatsappService.sendMessage(this.secretKey, { instanceName: instanceName, to: target, text: message });
                     }
                     break;
                 case "presence-update":
+                    this.logger.log("Memperbarui presence whatsapp");;
                     const dataPrecence: { instanceName: string, status: WAPresence, target: string } = job.data;
                     await this.whatsappService.precenceUpdate(dataPrecence.instanceName, dataPrecence.status, dataPrecence.target);
                     break;
                 case "read-message":
+                    this.logger.log("Menjalankan job auto read");
                     await this.whatsappService.readMessage(data.instanceName, data.data);
                 default:
                     break;

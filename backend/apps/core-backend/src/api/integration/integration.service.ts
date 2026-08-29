@@ -54,6 +54,9 @@ export class IntegrationService {
         if (!validPlatforms.includes(data.platform)) {
             throw new BadRequestException("platform is not found");
         }
+        const integration = await this.prisma.integration.create({
+            data: dataToSave
+        });
         if (data.platform === "WHATSAPP_BAYLIES") {
             await this.whatsappGatewayService.createWhatsappBaileys(workspaceId, dataToSave.instanceName);
         }
@@ -63,9 +66,6 @@ export class IntegrationService {
         if (data.platform === "WHATSAPP") {
             dataToSave.instanceName = `${workspace.name.split(" ").join("").toLowerCase()}-${data.platform}`;
         }
-        const integration = await this.prisma.integration.create({
-            data: dataToSave
-        });
         return {
             message: `Berhasil membuat integration ke ${data.platform === "WHATSAPP_BAYLIES" ? 'WhatsApp (Unofficial)' : data.platform}`,
             data: integration

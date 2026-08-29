@@ -33,7 +33,7 @@ export class MessageProcessor extends WorkerHost {
             const data = job.data;
             switch (job.name) {
                 case "process-incoming-msg":
-                    await this.handleMessage(data.workspaceId, data.instanceName, data.message, data.settings);
+                    await this.handleMessage(data.workspaceId, data.instanceName, data.message);
                     break;
                 case "update-integration":
                     await this.updateIntegration(data.instanceName, data.status, data.phoneNumber);
@@ -46,8 +46,14 @@ export class MessageProcessor extends WorkerHost {
         }
     }
 
-    async handleMessage(workspaceId: string, instanceName: string, data: WAMessage, settings?: WhatsappBayliesSetting | null) {
+    async handleMessage(workspaceId: string, instanceName: string, data: WAMessage) {
         if (!workspaceId || !instanceName || !data) return;
+
+        const device = await this.prisma.integration.findUnique({
+            where: { instanceName }
+        });
+        if (!device) return;
+        const settings = (device as any).settings as WhatsappBayliesSetting;
         if (settings && !settings.event?.includes("messages.upsert")) return;
         if (settings && Array.isArray(settings.event) && !settings.event.includes("messages.upsert")) return;
 
