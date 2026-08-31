@@ -7,6 +7,7 @@ import { siWhatsapp } from 'simple-icons';
 
 
 interface WAConnectModalProps {
+  isOpen: boolean;
   onClose: () => void;
   qrCodeString: string;
   isLoading: boolean;
@@ -16,10 +17,11 @@ interface WAConnectModalProps {
   // onStatusConnected?: () => void;
 }
 
-export function WABaileysConnectModal({ onClose, qrCodeString, isLoading, fetchQrCode, isExpired }: WAConnectModalProps) {
+export function WABaileysConnectModal({ onClose, qrCodeString, isLoading, fetchQrCode, isExpired, isOpen }: WAConnectModalProps) {
   const qrSize = 180;
   const logoSize = 40;
   const centerOffset = (qrSize - logoSize) / 2;
+  if (!isOpen) return;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4 transition-opacity duration-300 animate-fade-in">
 

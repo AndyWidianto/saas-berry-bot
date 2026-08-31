@@ -18,6 +18,8 @@ import axios from "axios";
 import CreateApiKeyModal from "@/app/components/CreateApiKeyModal";
 import { IntegrationCardSkeleton } from "@/app/components/Skeletons";
 import { useSocket } from "@/lib/context/SocketContext";
+import TelegramConfig from "@/app/components/TelegramConfig";
+import { baseUrlMessageGateway } from "@/lib/shared/shared";
 
 
 
@@ -74,6 +76,11 @@ export default function IntegrationsPage() {
   const [copiedKeyId, setCopiedKeyId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [cat, setCat] = useState("All");
+  const [isConfigOpens, setIsConfigOpens] = useState({
+    whatsappNonOfficial: false,
+    telegram: false,
+    email: false,
+  })
 
   const router = useRouter();
 
@@ -82,7 +89,7 @@ export default function IntegrationsPage() {
     {
       id: "WHATSAPP_BAYLIES",
       name: "WhatsApp (Unofficial)",
-      desc: "Send and receive messages via WhatsApp API with Baileys integration.",
+      desc: "Send and receive messages via WhatsApp (Unofficial) integration.",
       status: "DISCONNECTED",
       available: false,
       icon: icons.siWhatsapp,
@@ -93,6 +100,20 @@ export default function IntegrationsPage() {
         rejectCalls: true,
       },
     },
+    // {
+    //   id: "TELEGRAM",
+    //   name: "Telegram",
+    //   desc: "Send and receive messages via bot API with Telegram integration.",
+    //   status: "DISCONNECTED",
+    //   available: false,
+    //   icon: icons.siTelegram,
+    //   category: "Messaging",
+    //   setting: {
+    //     botToken: "",
+    //     secretToken: "",
+    //     webhookUrl: `${baseUrlMessageGateway}`
+    //   },
+    // },
     // {
     //   id: "EMAIL",
     //   name: "Email (SMTP/IMAP)",
@@ -125,6 +146,16 @@ export default function IntegrationsPage() {
   const openConfigure = (dev: Integrations) => {
     setIntegrationId(dev.id);
     setIntegration(dev);
+    setIsConfigOpens(prev => ({
+      ...prev,
+      ...(dev.platform === "TELEGRAM" ? {
+        telegram: true
+      } : dev.platform === "WHATSAPP_BAYLIES" ? {
+        whatsappNonOfficial: true,
+      } : dev.platform === "EMAIL" ? {
+        email: true,
+      } : {})
+    }))
   };
 
   const getQrcodeWhatsapp = async () => {
@@ -164,10 +195,21 @@ export default function IntegrationsPage() {
     setIntegrationId(null);
     setIsLoadingQrcode(true);
     setIntegration(dev);
+    console.log(dev);
 
     try {
       if (dev.platform === "WHATSAPP_BAYLIES") {
+        setIsConfigOpens(prev => ({
+          ...prev,
+          whatsappNonOfficial: true
+        }))
         await getQrcodeWhatsapp();
+      }
+      if (dev.platform === "TELEGRAM") {
+        setIsConfigOpens(prev => ({
+          ...prev,
+          telegram: true
+        }))
       }
     } catch (err) {
       if (axios.isAxiosError(err)) {
@@ -181,6 +223,11 @@ export default function IntegrationsPage() {
   const close = () => {
     setIntegration(null);
     setIntegrationId(null);
+    setIsConfigOpens({
+      email: false,
+      whatsappNonOfficial: false,
+      telegram: false
+    })
   };
 
   const createIntegration = async (intg: IntegrationState) => {
@@ -190,12 +237,15 @@ export default function IntegrationsPage() {
         name: intg.name,
         number: "",
         platform: intg.id,
-        settings: {
+        settings: intg.setting,
+      };
+      if (intg.id === "WHATSAPP_BAYLIES") {
+        data.settings = {
           event: ["messages.upsert", "messages.update", "presence.update"],
           rejectCalls: true,
           autoRead: true,
-        } as WhatsappBayliesSetting,
-      };
+        } as WhatsappBayliesSetting
+      }
       const dataTemporary: Integrations = {
         ...data,
         id: "temporary",
@@ -229,6 +279,7 @@ export default function IntegrationsPage() {
       console.error("Fetch error: ", err);
     }
   };
+
   const fetchIntegrations = async () => {
     setIsLoading(true);
     try {
@@ -313,6 +364,10 @@ export default function IntegrationsPage() {
     }
   };
 
+  const handleSubmitTelegram = async (data: any) => {
+
+  }
+
   useEffect(() => {
     if (workspace) {
       fetchIntegrations();
@@ -348,11 +403,6 @@ export default function IntegrationsPage() {
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Modals & Drawers */}
-      <CreateApiKeyModal
-        isOpen={openModalApiKey}
-        onClose={() => setOpenModalApiKey(false)}
-        onSubmit={createSecretKey}
-      />
       {integration && integration.status === "CONNECTED" && (
         <WhatsAppConfigDrawer
           close={close}
@@ -362,16 +412,23 @@ export default function IntegrationsPage() {
           deleteDevice={deleteIntegration}
         />
       )}
-      {integration &&
-        integration.platform === "WHATSAPP_BAYLIES" &&
-        integration.status !== "CONNECTED" && (
-          <WABaileysConnectModal
-            onClose={close}
-            qrCodeString={qrCodeString}
-            isLoading={isLoadingQrcode}
-          />
-        )}
-
+      <CreateApiKeyModal
+        isOpen={openModalApiKey}
+        onClose={() => setOpenModalApiKey(false)}
+        onSubmit={createSecretKey}
+      />
+      <WABaileysConnectModal
+        isOpen={isConfigOpens.whatsappNonOfficial}
+        onClose={close}
+        qrCodeString={qrCodeString}
+        isLoading={isLoadingQrcode}
+      />
+      {/* {integration && <TelegramConfig
+        isOpen={isConfigOpens.telegram}
+        onClose={() => close()}
+        device={integration}
+        onSubmit={handleSubmitTelegram}
+      />} */}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <PageHeader
@@ -499,7 +556,7 @@ export default function IntegrationsPage() {
                       Hubungkan
                     </Btn>
                   ) : (
-                    <>
+                    dev.platform === "WHATSAPP_BAYLIES" ? <>
                       <Btn
                         variant="outline"
                         size="sm"
@@ -517,7 +574,12 @@ export default function IntegrationsPage() {
                       >
                         Tes Pesan
                       </Btn>
-                    </>
+                    </> : <Btn
+                      variant="ghost"
+                      size="sm"
+                      className="w-full gap-2 rounded-xl"
+                      onClick={() => openConnect(dev)}
+                    ></Btn>
                   )}
                 </div>
               </Card>
@@ -746,7 +808,18 @@ export default function IntegrationsPage() {
 }
 
 function IconSVG({ platform }: { platform: PlatformIntegration }) {
-  const icon = platform === "WHATSAPP_BAYLIES" ? icons.siWhatsapp : icons.siGmail;
+  let icon = icons.siWhatsapp;
+  switch (platform) {
+    case "TELEGRAM":
+      icon = icons.siTelegram;
+      break;
+    case "WHATSAPP_BAYLIES":
+      icon = icons.siWhatsapp;
+      break;
+    case "EMAIL":
+      icon = icons.siGmail;
+      break;
+  }
   return (<div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-white border border-gray-100 shadow-sm group/btn">
     {icon && (
       <svg

@@ -11,6 +11,12 @@ export class ChatbotController {
 
     constructor(private service: ChatbotService) { }
 
+
+    @Post("telegram/:instanceName")
+    async telegram(@Param("instanceName") instanceName: string) {
+
+    }
+
     @Post(":keyPrefix/sendMessage")
     async generateAI(@Req() req: Request, @Param("keyPrefix") keyPrefix: string, @Body() data: SendPublicMessageDto) {
         const apikey = req.headers["apikey"];
@@ -20,7 +26,7 @@ export class ChatbotController {
     @Post(":keyPrefix/embeddings")
     @UseInterceptors(FileInterceptor("file"))
     async embeddings(
-        @Req() req: Request, 
+        @Req() req: Request,
         @Body() data: CreateKnowledgeDto,
         @Param("keyPrefix") keyPrefix: string,
         @UploadedFile("file") file: Express.Multer.File) {
@@ -38,12 +44,6 @@ export class ChatbotController {
     async getMessages(@Req() req: Request, @Param() params: { contactId: string, keyPrefix: string }, @Query() query: GetQueryBotDto) {
         const apikey = req.headers["apikey"];
         return await this.service.getMessages(params.keyPrefix, apikey, params.contactId, query);
-    }
-
-
-    @Post("telegram")
-    async telegram() {
-
     }
 
     // @Get("model-ai")

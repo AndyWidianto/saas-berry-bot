@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Post, Req, Res, UseGuards } from "@nestjs/common";
 import { AuthService } from "./auth.service";
-import { ContactMeDto, ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto } from "../../../../lib/dto/auth.dto";
+import { ContactMeDto, ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordAuthDto } from "../../../../lib/dto/auth.dto";
 import type { Response } from "express";
 import type { RequestAndPayload } from "../../../../lib/types";
 import { AuthGuard } from "@nestjs/passport";
@@ -142,7 +142,7 @@ export class AuthController {
 
     @Throttle({ default: { limit: 3, ttl: 1000 * 60 * 3 }})
     @Post("auth/reset-password")
-    async resetPassword(@Body() body: ResetPasswordDto) {
+    async resetPassword(@Body() body: ResetPasswordAuthDto) {
         return await this.service.resetPassword(body);
     }
 }

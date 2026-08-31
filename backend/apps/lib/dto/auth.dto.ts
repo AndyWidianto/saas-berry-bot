@@ -74,7 +74,7 @@ export class ForgotPasswordDto {
     email: string;
 }
 
-export class ResetPasswordDto {
+export class ResetPasswordAuthDto {
     @ApiProperty()
     @IsNotEmpty()
     key: string;

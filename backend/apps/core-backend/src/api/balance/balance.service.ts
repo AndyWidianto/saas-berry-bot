@@ -1,12 +1,11 @@
 import { PrismaService } from "@library/prisma/prisma.service";
-import { PayloadJWT } from "@library/types";
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from "@nestjs/common";
-import { InvoiceStatus, WorkspaceBalance } from "@prisma/client";
+import { CallbackMidtransPayload, PayloadJWT } from "@library/types";
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { MidtransCallbackDto, TopupDto } from "@library/dto/balance.dto";
 import MidtransClient from "midtrans-client";
 import { ConfigService } from "@nestjs/config";
-import { Request } from "express";
+import * as crypto from 'crypto';
 
 
 @Injectable()
@@ -29,7 +28,7 @@ export class BalanceService implements OnModuleInit {
 
     async topup(user: PayloadJWT, workspaceId: string, data: TopupDto) {
         await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
-        if (data.nominal < 20000) {
+        if (data.nominal < 20_000) {
             throw new BadRequestException("Minimal topup 20000");
         }
 
@@ -83,24 +82,39 @@ export class BalanceService implements OnModuleInit {
         return { token: transaction.token, redirect: transaction.redirect_url };
     }
 
-    async midtransCallback(req: Request) {
-        const notification = await this.verifyNotification(req.body);
-        const orderId = notification.order_id;
-        const transactionStatus = notification.transaction_status;
-        const fraudStatus = notification.fraud_status;
+    async midtransCallback(payload: CallbackMidtransPayload, secretKey: string) {
+        const serverSecretKey = this.configService.get<string>("CALLBACK_MIDTRANS_SECRET_KEY");
+        const serverKey = this.configService.get<string>("MIDTRANS_SERVER_KEY");
+
+        if (secretKey !== serverSecretKey) {
+            throw new BadRequestException("Invalid secret key");
+        }
+        if (!serverKey) {
+            throw new BadRequestException("Server key not found");
+        }
+        const { order_id, status_code, gross_amount, signature_key, transaction_status, fraud_status } = payload;
+
+        const hash = crypto
+            .createHash('sha512')
+            .update(`${order_id}${status_code}${gross_amount}${serverKey}`)
+            .digest('hex');
+
+        if (hash !== signature_key) {
+            throw new BadRequestException('Invalid Signature Key');
+        }
         const invoice = await this.prisma.invoice.findUnique({
-            where: { id: orderId }
+            where: { invoiceNumber: order_id }
         });
         if (!invoice) {
             throw new NotFoundException("Invoice tidak ditemukan");
         }
 
-        if (transactionStatus === 'capture' || transactionStatus === 'settlement') {
-            if (fraudStatus === 'accept' || !fraudStatus) {
-                console.log(`Order ${orderId} berhasil dibayar.`);
+        if (transaction_status === 'capture' || transaction_status === 'settlement') {
+            if (fraud_status === 'accept' || !fraud_status) {
+                console.log(`Order ${order_id} berhasil dibayar.`);
                 await this.prisma.$transaction([
                     this.prisma.invoice.update({
-                        where: { id: orderId },
+                        where: { invoiceNumber: order_id },
                         data: {
                             status: "PAID"
                         }
@@ -108,7 +122,9 @@ export class BalanceService implements OnModuleInit {
                     this.prisma.workspaceBalance.update({
                         where: { workspaceId: invoice.workspaceId },
                         data: {
-                            amount: invoice.subtotal
+                            amount: {
+                                increment: invoice.subtotal
+                            }
                         }
                     }),
                     this.prisma.creditLedger.create({
@@ -122,16 +138,17 @@ export class BalanceService implements OnModuleInit {
                     })
                 ])
             }
-        } else if (['cancel', 'deny', 'expire'].includes(transactionStatus)) {
+            console.log("Test...");
+        } else if (['cancel', 'deny', 'expire'].includes(transaction_status)) {
             await this.prisma.invoice.update({
-                where: { invoiceNumber: orderId },
+                where: { invoiceNumber: order_id },
                 data: {
                     status: "CANCELLED"
                 }
             });
-        } else if (transactionStatus === 'refund') {
+        } else if (transaction_status === 'refund') {
             await this.prisma.invoice.update({
-                where: { invoiceNumber: orderId },
+                where: { invoiceNumber: order_id },
                 data: {
                     status: "REFUNDED"
                 }

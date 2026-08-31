@@ -1,5 +1,5 @@
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { ContactMeDto, ForgotPasswordDto, RegisterDto, ResetPasswordDto } from "../../../../lib/dto/auth.dto";
+import { ContactMeDto, ForgotPasswordDto, RegisterDto, ResetPasswordAuthDto } from "../../../../lib/dto/auth.dto";
 import { PrismaService } from "../../../../lib/prisma/prisma.service";
 import { TokenService } from "../../../../lib/token/token.service";
 import { Login, PayloadJWT, UserOAuth } from "../../../../lib/types";
@@ -267,7 +267,7 @@ export class AuthService {
         };
     }
 
-    async resetPassword(data: ResetPasswordDto) {
+    async resetPassword(data: ResetPasswordAuthDto) {
         const existing = await this.cacheManager.get<{ userId: string; token?: string }>(data.key);
 
         if (!existing) {

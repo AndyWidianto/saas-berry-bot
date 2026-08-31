@@ -1,5 +1,6 @@
 import { ApiProperty, PartialType } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional } from "class-validator";
+import { PlatformType } from "@prisma/client";
+import { IsEnum, IsNotEmpty, IsOptional } from "class-validator";
 
 
 export class CreateIntegrationDto {
@@ -17,7 +18,10 @@ export class CreateIntegrationDto {
 
     @ApiProperty()
     @IsNotEmpty({ message: "field platform is required"})
-    platform: "WHATSAPP_BAYLIES" | "EMAIL" | "WHATSAPP";
+    @IsEnum(PlatformType, {
+        message: `platform must be one of the following values: ${Object.values(PlatformType).join(', ')}`
+    })
+    platform: PlatformType
 
     @ApiProperty()
     @IsOptional()

@@ -46,6 +46,17 @@ export class MessageProcessor extends WorkerHost {
         }
     }
 
+    private markdownToWA(text: string) {
+        if (!text) return '';
+
+        return text
+            .replace(/~~(.*?)~~/g, '~$1~')
+            .replace(/`([^`\n]+)`/g, '```$1```')
+            .replace(/(?<!\*)\*(?!\*)\s*([^*]+?)\s*(?<!\*)\*(?!\*)/g, '_$1_')
+            .replace(/\*\*(.*?)\*\*/g, '*$1*')
+            .replace(/^#{1,6}\s+(.+)$/gm, (_, title) => `*${title.trim().toUpperCase()}*`);
+    }
+
     async handleMessage(workspaceId: string, instanceName: string, data: WAMessage) {
         if (!workspaceId || !instanceName || !data) return;
 
@@ -186,7 +197,7 @@ export class MessageProcessor extends WorkerHost {
             const totalCostEmbedding = await this.billingService.totalCostInput(systemInstruction, prompt, embeddingModel);
 
             const responseAI = await this.chatbotService.handleResponseAI(chatModel, message, systemInstruction, messages);
-            const text = responseAI.text;
+            const text = this.markdownToWA(responseAI.text);
 
             if (!responseAI.success) {
                 console.log("error: ", responseAI);

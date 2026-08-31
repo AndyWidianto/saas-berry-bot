@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { BalanceService } from "./balance.service";
 import { AuthGuard } from "@nestjs/passport";
 import type { RequestAndPayload } from "@library/types";
@@ -20,10 +20,11 @@ export class BalanceController {
     }
 
     @Post("midtrans-callback")
-    async midtransCallback(@Req() req: Request) {
-        return await this.service.midtransCallback(req);
+    async midtransCallback(@Body() body: any, @Query("secret") secret?: string) {
+        return await this.service.midtransCallback(body, secret || "");
     }
 
+    
     @SkipThrottle()
     @Get("/:workspaceId/balance")
     @UseGuards(AuthGuard("jwt"))

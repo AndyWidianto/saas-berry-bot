@@ -73,6 +73,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     socketInstance.on('connect', () => {
       setIsConnected(true);
+      console.log('⚡ Socket connected globally:', socketInstance.id);
     });
 
     socketInstance.on('connect_error', async (err) => {
@@ -86,7 +87,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         socketInstance.auth = { token: `Bearer ${newAccessToken}` };
         socketInstance.connect();
       } else {
-        // Jika r      console.log('⚡ Socket connected globally:', socketInstance.id);efresh token juga gagal, putuskan koneksi
+        // Jika refresh token juga gagal, putuskan koneksi
+        console.log('⚡ Socket connected globally:', socketInstance.id);
         socketInstance.disconnect();
       }
     });

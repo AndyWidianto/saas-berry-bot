@@ -49,11 +49,6 @@ export class IntegrationService {
         if (existing) {
             throw new NotFoundException("WhatsApp (Unofficial) is already");
         }
-
-        const validPlatforms = ["WHATSAPP_BAYLIES", "EMAIL", "WHATSAPP"];
-        if (!validPlatforms.includes(data.platform)) {
-            throw new BadRequestException("platform is not found");
-        }
         const integration = await this.prisma.integration.create({
             data: dataToSave
         });
