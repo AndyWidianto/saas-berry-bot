@@ -3,7 +3,7 @@ import { Job } from "bullmq";
 import { WhatsappService } from "./whatsapp.service";
 import { ConfigService } from "@nestjs/config";
 import { Logger, OnModuleInit } from "@nestjs/common";
-import { SendMessageDto } from "@library/dto/message.dto";
+import { MessageMediaDto, MessageTextDto, SendMessageDto } from "@library/dto/message.dto";
 import { WAMessage, WAPresence } from "@whiskeysockets/baileys";
 
 
@@ -33,13 +33,12 @@ export class WhatsappMessageProcessor extends WorkerHost implements OnModuleInit
             switch (job.name) {
                 case "send-message":
                     this.logger.log("Mengirim pesan baru...");
-                    const { instanceName, target, message, type } = data as SendMessageDto;
-                    if (type === "text") {
-                        await this.whatsappService.sendMessage(this.secretKey, { instanceName: instanceName, to: target, text: message });
-                    }
+                    await this.whatsappService.sendMessage(this.secretKey, data as MessageTextDto);
                     break;
+                case "send-media":
+                    await this.whatsappService.sendMedia(this.secretKey, data as MessageMediaDto);
                 case "presence-update":
-                    this.logger.log("Memperbarui presence whatsapp");;
+                    this.logger.log("Memperbarui presence whatsapp");
                     const dataPrecence: { instanceName: string, status: WAPresence, target: string } = job.data;
                     await this.whatsappService.precenceUpdate(dataPrecence.instanceName, dataPrecence.status, dataPrecence.target);
                     break;
@@ -50,6 +49,7 @@ export class WhatsappMessageProcessor extends WorkerHost implements OnModuleInit
                     break;
             }
         } catch (err) {
+            console.log("error: ", err);
             throw err;
         }
     }

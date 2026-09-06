@@ -1,16 +1,9 @@
-import { PrismaService } from "@library/prisma/prisma.service";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Inject, Injectable, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
-import { AIModel, Message, Prisma, Workspace, WorkspaceBalance } from "@prisma/client";
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { WAMessage, WAMessageKey, WAPresence } from "@whiskeysockets/baileys";
-import type { Cache } from "cache-manager";
-import type { KnowledgeChunk } from "@library/types";
-import { GeminiService } from "@library/agent/gemini.service";
 import { CACHE_RAM_SOCK_SESSION } from "@library/constant/constant-cache";
-import { MessageTextDto } from "@library/dto/message.dto";
+import { MessageMediaDto, MessageTextDto } from "@library/dto/message.dto";
 import axios from "axios";
 import { ConfigService } from "@nestjs/config";
-import { Content } from "@google/generative-ai";
 
 
 @Injectable()
@@ -18,10 +11,7 @@ export class WhatsappService implements OnModuleInit {
     private readonly logger = new Logger(WhatsappService.name);
     private whatsappSecret = "";
     constructor(
-        private prisma: PrismaService,
-        private gemini: GeminiService,
         private configService: ConfigService,
-        @Inject(CACHE_MANAGER) private cacheManager: Cache
     ) { }
 
     onModuleInit() {
@@ -29,6 +19,10 @@ export class WhatsappService implements OnModuleInit {
     }
 
     async sendMessage(secret: string, { instanceName, to, text }: MessageTextDto): Promise<void> {
+        if (secret !== this.whatsappSecret) {
+            throw new BadRequestException("invalid secret.")
+        };
+        console.log("instanceName: ", instanceName);
         const sock = CACHE_RAM_SOCK_SESSION[instanceName];
         if (!sock) {
             throw new NotFoundException(`Instance [${instanceName}] tidak aktif.`);
@@ -38,11 +32,14 @@ export class WhatsappService implements OnModuleInit {
         try {
             await sock.sendMessage(formattedPhone, { text });
         } catch (error) {
-            this.logger.error(`Gagal mengirim pesan ke ${to}`, error);
+            this.logger.error(`Gagal mengirim pesan ke ${formattedPhone}`, error);
         }
     }
 
-    async sendMedia(instanceName: string, to: string, imageUrl: string, caption?: string): Promise<void> {
+    async sendMedia(secret: string, { to, imageUrl, caption, instanceName }: MessageMediaDto): Promise<void> {
+        if (secret !== this.whatsappSecret) {
+            throw new BadRequestException("invalid secret.")
+        };
         const sock = CACHE_RAM_SOCK_SESSION[instanceName];
         if (!sock) throw new NotFoundException(`Instance [${instanceName}] tidak aktif.`);
 

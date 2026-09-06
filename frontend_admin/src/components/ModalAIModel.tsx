@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Cpu, DollarSign, Settings, Check } from "lucide-react";
-import { CreateAIModel, ProviderAI } from "@/types";
+import { CreateAIModel, ProviderAI } from "@/lib/types";
 
 interface CreateAIModelModalProps {
   isOpen: boolean;

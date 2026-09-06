@@ -8,6 +8,8 @@ import axios from "axios";
 import { ArrowUpRight, Bot, ChevronLeft, ChevronRight, Clock, Download, Loader2, RefreshCw, Search, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 
 
@@ -373,7 +375,11 @@ export default function TabAILog({ workspaceId }: { workspaceId: string }) {
               <div>
                 <label className="text-muted-foreground font-semibold block mb-1">AI Answer</label>
                 <div className="bg-muted/50 p-3 rounded-lg border border-border text-foreground whitespace-pre-wrap leading-relaxed">
-                  {selectedLog.answer || <em className="text-muted-foreground">No Answer Generated</em>}
+                  {selectedLog.answer ? <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                  >
+                    {selectedLog.answer}
+                  </ReactMarkdown> : <em className="text-muted-foreground">No Answer Generated</em>}
                 </div>
               </div>
 

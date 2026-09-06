@@ -33,6 +33,10 @@ import { AgentModule } from '@library/agent/agent.module';
       rootPath: '/var/berry/images',
       serveRoot: '/images',          // Prefix URL publik
     }),
+    ServeStaticModule.forRoot({
+      rootPath: '/var/berry/files',
+      serveRoot: '/files',          // Prefix URL publik
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ".env"

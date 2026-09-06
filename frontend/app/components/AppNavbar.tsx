@@ -1,8 +1,7 @@
-import { AlertCircle, AlertTriangle, BarChart3, Bell, Bot, Building2, Check, CheckCircle2, ChevronDown, ChevronsUpDown, Clock, CreditCard, InboxIcon, Info, LayoutDashboard, Menu, Moon, Plus, Puzzle, RadioIcon, Search, SettingsIcon, Sun, UserCheck, Users, Wallet } from "lucide-react";
+import { AlertCircle, AlertTriangle, BarChart3, Bell, Bot, Building2, Check, CheckCircle2, ChevronDown, ChevronsUpDown, Clock, CreditCard, InboxIcon, Info, LayoutDashboard, Menu, Moon, Plus, Puzzle, RadioIcon, Search, SettingsIcon, Sparkles, Sun, UserCheck, Users, Wallet } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import cn from "./ClassName";
-import { Avatar } from "./Avatar";
 import useAxios from "@/lib/axios-service";
 import { useBalanceStore } from "@/lib/store/balanceStore";
 import { useParams, usePathname, useRouter } from "next/navigation";
@@ -21,6 +20,20 @@ interface AppNavbarProps {
   page: string;
   setMobileOpen: (state: boolean) => void
 }
+
+const Avatar = ({ initials, color, size = "md", online }: { initials: string; color: string; size?: "sm" | "md" | "lg"; online?: boolean }) => {
+  const sizes = { sm: "w-7 h-7 text-xs", md: "w-9 h-9 text-sm", lg: "w-12 h-12 text-base" };
+  return (
+    <div className="relative flex-shrink-0">
+      <div className={cn("rounded-full flex items-center justify-center font-semibold text-white", sizes[size])} style={{ backgroundColor: color }}>
+        {initials}
+      </div>
+      {online !== undefined && (
+        <span className={cn("absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900", online ? "bg-emerald-500" : "bg-slate-300")} />
+      )}
+    </div>
+  );
+};
 
 export default function AppNavbar({
   darkMode,
@@ -105,9 +118,8 @@ export default function AppNavbar({
       const res = await AxiosPrivate.get("/workspaces");
       const data = res.data;
       const newWorkspaces = data.data as Workspace[];
-      console.log(newWorkspaces);
       setWorkspaces(newWorkspaces);
-      setWorkspace(newWorkspaces[0]);
+      setWorkspace(newWorkspaces.find(nw => nw.id === workspaceId) || null);
       if (!newWorkspaces.find(wp => wp.id === workspaceId)) {
         router.push(`/dashboard/${newWorkspaces[0].id}`);
       }
@@ -157,7 +169,6 @@ export default function AppNavbar({
     try {
       const res = await AxiosPrivate.get(`/${workspaceId}/notifications?status='UNREAD'`);
       const data = res.data;
-      console.log(data);
       setNotifications(data.data);
     } catch (err) {
       if (axios.isAxiosError(err)) {
@@ -183,7 +194,7 @@ export default function AppNavbar({
       await AxiosPrivate.post(`/${workspaceId}/notifications/markread`, {
         id: notif.id
       });
-      const action: NotificationAction | null =notif.metadata?.action
+      const action: NotificationAction | null = notif.metadata?.action
       if (action) {
         if (action === "CONFIGURE_MODEL") {
           router.push(`/dashboard/${workspaceId}/chatbot?tab=settings`);
@@ -201,6 +212,7 @@ export default function AppNavbar({
     setWorkspace(ws);
     setWorkspaceOpen(false);
     handleSwitchWorkspace(ws.id);
+    localStorage.setItem("workspaceId", ws.id);
   };
 
   const fetchBalance = async () => {
@@ -267,10 +279,25 @@ export default function AppNavbar({
               </div>
             )}
             <div className="flex flex-col text-left hidden sm:flex min-w-0">
-              <span className="text-xs font-semibold leading-none max-w-[100px] lg:max-w-[140px] truncate">
-                {workspace?.name || "Select Workspace"}
-              </span>
-              <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold leading-none max-w-[90px] lg:max-w-[130px] truncate">
+                  {workspace?.name || "Select Workspace"}
+                </span>
+                {/* Plan Badge di Selected Workspace */}
+                <span
+                  className={cn(
+                    "text-[9px] font-bold px-1.5 py-0.2 rounded-md uppercase tracking-wider border shrink-0",
+                    workspace?.plan === "PAY_AS_YOU_GO"
+                      ? "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
+                      : workspace?.plan === "PRO_MONTHLY"
+                        ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20 dark:text-indigo-400"
+                        : "bg-muted text-muted-foreground border-border"
+                  )}
+                >
+                  {workspace?.plan?.replace(/_/g, " ") || "FREE"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-1">
                 <span
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${workspace?.isAiActive ? "bg-emerald-500" : "bg-muted-foreground/40"
                     }`}
@@ -292,30 +319,45 @@ export default function AppNavbar({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.96 }}
                 transition={{ duration: 0.15 }}
-                className="absolute left-0 top-11 w-56 sm:w-60 bg-card border border-border rounded-xl shadow-xl z-50 p-1.5"
+                className="absolute left-0 top-11 w-64 sm:w-72 bg-card border border-border rounded-xl shadow-xl z-50 p-1.5"
               >
                 <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Workspaces
                 </div>
 
-                {workspaces.map((ws) => (
-                  <button
-                    key={ws.id}
-                    onClick={() => handleSelectWorkspace(ws)}
-                    className={cn(
-                      "w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition-colors",
-                      workspace?.id === ws.id
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "hover:bg-muted text-foreground"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <Building2 className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{ws.name}</span>
-                    </div>
-                    {workspace?.id === ws.id && <Check className="w-3.5 h-3.5 shrink-0" />}
-                  </button>
-                ))}
+                <div className="max-h-60 overflow-y-auto space-y-0.5">
+                  {workspaces.map((ws) => (
+                    <button
+                      key={ws.id}
+                      onClick={() => handleSelectWorkspace(ws)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition-colors",
+                        workspace?.id === ws.id
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "hover:bg-muted text-foreground"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 pr-2">
+                        <Building2 className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{ws.name}</span>
+                        {/* Plan Badge di list workspace */}
+                        <span
+                          className={cn(
+                            "text-[8px] font-semibold px-1.5 py-0.5 rounded uppercase shrink-0 border",
+                            ws.plan === "PAY_AS_YOU_GO"
+                              ? "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
+                              : ws.plan === "PRO_MONTHLY"
+                                ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20 dark:text-indigo-400"
+                                : "bg-muted text-muted-foreground border-border"
+                          )}
+                        >
+                          {ws.plan ? ws.plan.replace(/_/g, " ") : "FREE"}
+                        </span>
+                      </div>
+                      {workspace?.id === ws.id && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
 
                 <div className="h-px bg-border my-1" />
 
@@ -341,23 +383,9 @@ export default function AppNavbar({
         </div>
       </div>
 
-      {/* CENTER SECTION: SEARCH BAR (Sembunyi di mobile & tablet kecil) */}
-      {/* <div className="flex-1 max-w-xs xl:max-w-md mx-2 hidden md:block">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            placeholder="Search conversations..."
-            className="w-full bg-muted/60 rounded-lg pl-9 pr-8 py-1.5 text-xs lg:text-sm border border-transparent focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-          />
-          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground bg-background border border-border rounded px-1.5 py-0.5 hidden lg:inline-block">
-            ⌘K
-          </kbd>
-        </div>
-      </div> */}
-
       {/* RIGHT SECTION: ACTIONS & USER PROFILE */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        {/* Indikator Saldo & Top Up (Ringkas di mobile) */}
+        {/* Indikator Saldo & Top Up */}
         <div className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 bg-muted/50 border border-border/80 rounded-xl text-xs font-semibold text-foreground">
           <Wallet className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <span className="text-[11px] sm:text-xs">
@@ -374,7 +402,6 @@ export default function AppNavbar({
 
         {/* Notification Bell */}
         <div className="relative" ref={dropdownRef}>
-          {/* Bell Trigger Button */}
           <button
             onClick={() => setNotifOpen(!notifOpen)}
             className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors relative"
@@ -386,7 +413,6 @@ export default function AppNavbar({
             )}
           </button>
 
-          {/* Dropdown Menu */}
           <AnimatePresence>
             {notifOpen && (
               <motion.div
@@ -396,7 +422,6 @@ export default function AppNavbar({
                 transition={{ duration: 0.15 }}
                 className="absolute right-0 top-11 w-80 sm:w-96 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden flex flex-col"
               >
-                {/* Header */}
                 <div className="flex items-center justify-between p-3.5 border-b border-border/80 bg-muted/30">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-xs sm:text-sm text-foreground">Notification</h3>
@@ -417,7 +442,6 @@ export default function AppNavbar({
                   )}
                 </div>
 
-                {/* List Item Notifikasi */}
                 <div className="max-h-80 overflow-y-auto divide-y divide-border/40">
                   {notifications.length === 0 ? (
                     <div className="p-8 text-center flex flex-col items-center justify-center space-y-2">
@@ -439,14 +463,12 @@ export default function AppNavbar({
                             : 'hover:bg-muted/50 opacity-80'
                             }`}
                         >
-                          {/* Icon Indikator Level */}
                           <div
                             className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center border shrink-0 ${levelTheme.bgColor}`}
                           >
                             {levelTheme.icon}
                           </div>
 
-                          {/* Content */}
                           <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex items-center justify-between gap-2">
                               <span className="font-semibold text-xs text-foreground truncate">
@@ -463,12 +485,10 @@ export default function AppNavbar({
                             </p>
 
                             <div className="flex items-center justify-between pt-1">
-                              {/* Category Tag */}
                               <span className="text-[9px] font-medium tracking-wider uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/50">
                                 {item.category.replace('_', ' ')}
                               </span>
 
-                              {/* Unread dot */}
                               {!item.isRead && (
                                 <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                               )}
@@ -483,14 +503,6 @@ export default function AppNavbar({
             )}
           </AnimatePresence>
         </div>
-
-        {/* Dark Mode Toggle (Disembunyikan di hp paling kecil untuk menghemat ruang) */}
-        {/* <button
-          onClick={() => setDarkMode(!darkMode)}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg hidden sm:flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors"
-        >
-          {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        </button> */}
 
         {/* User Profile */}
         <div className="flex items-center gap-1.5 pl-1.5 sm:pl-2 border-l border-border">

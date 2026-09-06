@@ -1,6 +1,6 @@
 import { ApiProperty, OmitType, PartialType } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
-import { IsEmail, IsNotEmpty, Matches, MinLength } from "class-validator";
+import { IsEmail, IsEnum, IsNotEmpty, Matches, MinLength } from "class-validator";
 
 
 export class CreateUserDto {
@@ -43,6 +43,7 @@ export class CreateUserDto {
         description: "Nama Lengkap User"
     })
     @IsNotEmpty({ message: 'Role tidak boleh kosong' })
+    @IsEnum(UserRole, { message: "Role tidak tersedia."})
     role: UserRole;
 }
 

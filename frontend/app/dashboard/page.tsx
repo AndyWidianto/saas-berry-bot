@@ -28,11 +28,16 @@ export default function WorkspacePage() {
       setMessage("Memeriksa data workspace...");
       const res = await AxiosPrivate.get("/workspaces");
       const data = res.data;
+      const workspaceId = localStorage.getItem("workspaceId");
       const newWorkspaces = (data.data as Workspace[]) || [];
-      const workspace = newWorkspaces.length > 0 ? newWorkspaces[0] : null;
+      const workspace = newWorkspaces.length > 0 ? newWorkspaces.find(w => w.id === workspaceId) ?? newWorkspaces[0] : null;
 
       setWorkspaces(newWorkspaces);
       setWorkspace(workspace);
+
+      if (workspace) {
+        localStorage.setItem("workspaceId", workspace.id);
+      }
 
       if (!workspace) {
         setMessage("Membuat workspace baru untuk Anda...");
@@ -44,6 +49,7 @@ export default function WorkspacePage() {
 
         setWorkspaces([newWorkspace]);
         setWorkspace(newWorkspace);
+        localStorage.setItem("workspaceId", newWorkspace.id);
         
         setMessage("Workspace berhasil dibuat! Mengalihkan...");
         router.push(`/dashboard/${newWorkspace.id}`);

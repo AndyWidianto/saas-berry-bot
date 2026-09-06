@@ -2,9 +2,9 @@ import { CreateWorkspaceContactDto } from "@library/dto/contact.dto";
 import { PrismaService } from "@library/prisma/prisma.service";
 import { PayloadJWT } from "@library/types";
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { PlatformType, Prisma } from "@prisma/client";
 import { WorkspaceService } from "../workspace/workspace.service";
-import { GetQueryDto } from "@library/dto/query.dto";
+import { GetQueryContactDto, GetQueryDto } from "@library/dto/query.dto";
 
 @Injectable()
 export class ContactService {
@@ -13,7 +13,24 @@ export class ContactService {
     private workspaceService: WorkspaceService
   ) { }
 
-  async getAll(user: PayloadJWT, workspaceId: string, { search, limit, cursor }: GetQueryDto) {
+  private getSenderIdFilter(platform?: PlatformType): Prisma.StringFilter | undefined {
+    if (!platform) return undefined;
+    if (platform === "API") {
+      return {
+        contains: "berry_",
+        mode: "insensitive",
+      };
+    }
+    if (platform.includes("WHATSAPP")) {
+      return {
+        contains: "@s.whatsapp.net",
+        mode: "insensitive",
+      };
+    }
+
+    return undefined;
+  };
+  async getAll(user: PayloadJWT, workspaceId: string, { search, limit, cursor, platform }: GetQueryContactDto) {
     const existingWorkspace = await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
 
     const take = limit ? limit : 20;
@@ -26,6 +43,7 @@ export class ContactService {
             { phoneNumber: { contains: search, mode: "insensitive" } }
           ]
         } : {},
+        senderId: this.getSenderIdFilter(platform)
       },
       ...cursor ? {
         cursor: { id: cursor },

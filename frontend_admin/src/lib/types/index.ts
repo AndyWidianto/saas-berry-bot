@@ -1,3 +1,13 @@
+export type * from "./users";
+export type * from "./workspace";
+
+export type GETResponse = {
+    data: any,
+    totalPage: number,
+    total: number,
+    nextId: string
+}
+
 
 export type Page =
   | "overview"

@@ -1,4 +1,5 @@
 
+export type PlanType = "FREE" | "PAY_AS_YOU_GO" | "PRO_MONTHLY";
 export interface Workspace {
     name: string;
     id: string;
@@ -9,6 +10,7 @@ export interface Workspace {
     ownerId: string;
     rewrite: boolean;
     isAiActive: boolean;
+    plan: PlanType;
     greetingText: string | null;
     systemRules: string | null;
     activeChatModelId: string;

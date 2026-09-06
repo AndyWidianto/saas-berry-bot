@@ -1,6 +1,5 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
-import { makeWASocket, DisconnectReason, useMultiFileAuthState, WASocket, jidNormalizedUser, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } from '@whiskeysockets/baileys';
-import * as qrcode from 'qrcode-terminal';
+import { makeWASocket, DisconnectReason, useMultiFileAuthState, jidNormalizedUser, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import QRCodeNode from 'qrcode';
 import fs from 'fs';
@@ -12,8 +11,7 @@ import { StatusIntegration } from "@prisma/client";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { WhatsappBayliesSetting } from "@library/types";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import type { Cache } from "cache-manager";
+
 
 
 @Injectable()
@@ -22,11 +20,11 @@ export class WhatsappGatewayService implements OnModuleInit {
     private readonly logger = new Logger(WhatsappGatewayService.name);
     private statusInstance: Record<string, StatusIntegration> = {};
     private whatsappSecret = "";
+    private phoneNumbers: Record<string, string> = {};
 
     constructor(
         private prisma: PrismaService,
         private configService: ConfigService,
-        @Inject(CACHE_MANAGER) private cacheManager: Cache,
         @InjectQueue("message-queue") private readonly incomingQueue: Queue
     ) { }
 
@@ -92,43 +90,64 @@ export class WhatsappGatewayService implements OnModuleInit {
             logger: pino({ level: 'silent' }),
             shouldSyncHistoryMessage: () => false,
         });
-        CACHE_RAM_SOCK_SESSION[instanceName] = sock;
-
         sock.ev.on('creds.update', saveCreds);
 
         // event update connection
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
+
+            // Ambil status & phone number eksisting dari RAM/State
             let status: StatusIntegration = this.statusInstance[instanceName] ?? "CONNECTING";
-            let phoneNumber: string | null = null;
+            let phoneNumber: string | null = this.phoneNumbers[instanceName] ?? null;
+
             if (qr) {
                 this.logger.log(`[${instanceName}] QR Code baru digenerate, perbarui di RAM.`);
                 CACHE_RAM_QR_CODE[instanceName] = qr;
-               status = "CONNECTING";
+                status = "CONNECTING";
             }
+
             if (connection === 'open') {
                 this.logger.log(`🚀 [${instanceName}] Berhasil terhubung! Menghapus data QR dari memori.`);
                 CACHE_RAM_QR_CODE[instanceName] = null;
-                phoneNumber = sock.user?.phoneNumber || jidNormalizedUser(sock.user?.id).split("@")[0];
+
+                // PASTIKAN SOCKET DISIMPAN KE RAM KETIKA OPEN
+                CACHE_RAM_SOCK_SESSION[instanceName] = sock;
+
+                // Ambil Nomor Telepon & Simpan di State Memory
+                phoneNumber = sock.user?.phoneNumber || (sock.user?.id ? jidNormalizedUser(sock.user.id).split("@")[0] : null);
+                this.phoneNumbers[instanceName] = phoneNumber ?? "";
+
                 status = "CONNECTED";
             }
             else if (connection === 'close') {
                 const lastDisconnectError = lastDisconnect?.error as any;
                 const statusCode = lastDisconnectError?.output?.statusCode;
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
                 this.logger.warn(`🛑 [${instanceName}] Koneksi terputus dengan status: ${statusCode}. Menyambung kembali: ${shouldReconnect}`);
+
+                // Hapus socket dari RAM agar sendMessage tidak memanggil socket mati ini
+                delete CACHE_RAM_SOCK_SESSION[instanceName];
+                delete CACHE_RAM_QR_CODE[instanceName];
 
                 try {
                     sock.ev.removeAllListeners('connection.update');
                     sock.ev.removeAllListeners('creds.update');
+                    // Gunakan ws.close() untuk memastikan socket benar-benar mati sebelum buat instance baru
+                    sock.ws?.close();
                     sock.end(undefined);
                 } catch (e) {
                     // Ignore jika socket sudah hancur
                 }
 
+                status = "DISCONNECTED";
+
                 if (shouldReconnect) {
-                    this.logger.log(`🔄 [${instanceName}] Membuka instance baru...`);
-                    await this.createInstance(workspaceId, instanceName, settings);
+                    this.logger.log(`🔄 [${instanceName}] Membuka instance baru dalam 2 detik...`);
+                    // Beri jeda 2 detik agar port/resources socket lama benar-benar dilepas oleh OS
+                    setTimeout(async () => {
+                        await this.createInstance(workspaceId, instanceName, settings);
+                    }, 2000);
                 } else {
                     this.logger.error(`❌ [${instanceName}] Perangkat keluar (Logged Out).`);
                     try {
@@ -139,13 +158,14 @@ export class WhatsappGatewayService implements OnModuleInit {
                         this.logger.error(`⚠️ Gagal menghapus folder sesi [${instanceName}]:`, error);
                     }
                 }
-                status = "DISCONNECTED";
             }
-            if ((this.statusInstance[instanceName] !== status) && (status !== "CONNECTING")) {
+
+            // UPDATE QUEUE STATUS
+            // Kirim event perubahan status ke BullMQ jika status berubah
+            if ((this.statusInstance[instanceName] !== status)) {
                 await this.incomingQueue.add("update-integration", { instanceName, phoneNumber, status }, { removeOnComplete: true });
             }
         });
-
         // event pesan masuk
         sock.ev.on('messages.upsert', async (m) => {
             if (m.type !== 'notify') return;
@@ -155,7 +175,7 @@ export class WhatsappGatewayService implements OnModuleInit {
                     const remote = msg.key.remoteJidAlt;
                     // const isBlocked = await this.cacheManager.get<boolean>(`block-${remote}`);
                     // if (isBlocked) return;
-                    
+
                     await this.incomingQueue.add("process-incoming-msg", {
                         instanceName,
                         workspaceId,

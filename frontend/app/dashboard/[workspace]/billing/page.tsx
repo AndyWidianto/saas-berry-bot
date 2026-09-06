@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import TopUpModal from "@/app/components/TopUpModal";
 import useAxios from "@/lib/axios-service";
 import { useParams } from "next/navigation";
-import { CreditLedger, CreditTransactionType, Invoice, ResponseApi, WorkspaceBalance } from "@/lib/types";
+import { CreditLedger, CreditTransactionType, Invoice, WorkspaceBalance } from "@/lib/types";
 import { useBalanceStore } from "@/lib/store/balanceStore";
 import { InvoicePdfDocument } from "@/app/components/InvoicePdfDocument";
 import { pdf } from "@react-pdf/renderer";
@@ -91,7 +91,7 @@ export default function BillingPage() {
 
     const itemsPerPage = 10;
 
-    const fetchBalance = async () => {
+    const fetchBalance = async (balance: WorkspaceBalance | null) => {
         if (balance && balance.workspaceId === workspaceId) return;
         try {
             const res = await AxiosPrivate.get(`/${workspaceId}/balance`);
@@ -185,7 +185,7 @@ export default function BillingPage() {
                 window.snap.pay(result.token, {
                     onSuccess: function () {
                         toast.success("Pembayaran berhasil!");
-                        fetchBalance();
+                        fetchBalance(null);
                         fetchInvoices(1, null);
                     },
                     onPending: function () {
@@ -210,7 +210,7 @@ export default function BillingPage() {
 
     useEffect(() => {
         if (!workspaceId) return;
-        fetchBalance();
+        fetchBalance(balance);
         fetchInvoices(1, null);
         fetchLedgers(1, null);
     }, [workspaceId]);
@@ -250,6 +250,9 @@ export default function BillingPage() {
                     </div>
 
                     <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50">
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-medium">
+                            ⚡ Mode Sandbox / Testing
+                        </span>
                         <Btn
                             variant="primary"
                             size="sm"
@@ -271,8 +274,8 @@ export default function BillingPage() {
                         <button
                             onClick={() => setActiveTab("invoices")}
                             className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${activeTab === "invoices"
-                                    ? "bg-background text-foreground shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
                                 }`}
                         >
                             <Receipt className="w-3.5 h-3.5" />
@@ -281,8 +284,8 @@ export default function BillingPage() {
                         <button
                             onClick={() => setActiveTab("ledgers")}
                             className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${activeTab === "ledgers"
-                                    ? "bg-background text-foreground shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
                                 }`}
                         >
                             <History className="w-3.5 h-3.5" />

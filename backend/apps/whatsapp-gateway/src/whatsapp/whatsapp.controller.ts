@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Headers, Param, Post } from "@nestjs/common";
 import { WhatsappGatewayService } from "./whatsapp-gateway.service";
-import { MessageTextDto } from "@library/dto/message.dto";
+import { MessageMediaDto, MessageTextDto } from "@library/dto/message.dto";
 import { WhatsappService } from "./whatsapp.service";
 
 
@@ -24,6 +24,10 @@ export class WhatsappController {
     @Post("sendMessage")
     async sendMessage(@Headers("secret-key") secret: string, @Body() body: MessageTextDto) {
         return await this.whatsappService.sendMessage(secret, body);
+    }
+    @Post("sendMedia")
+    async sendMedia(@Headers("secret-key") secret: string, @Body() body: MessageMediaDto) {
+        return await this.whatsappService.sendMedia(secret, body);
     }
 
     @Delete(":instanceName")

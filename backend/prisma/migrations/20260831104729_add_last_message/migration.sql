@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "contacts" ADD COLUMN     "lastMessage" TEXT,
+ADD COLUMN     "lastMessageAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "unreadCount" INTEGER NOT NULL DEFAULT 0;

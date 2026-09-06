@@ -1,7 +1,7 @@
 "use client";
 import { BarChart3, Bot, CreditCard, InboxIcon, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Puzzle, RadioIcon, SettingsIcon, Sparkles, UserCheck, Users, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { Avatar } from "./Avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "./Avatar";
 import cn from "./ClassName";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
@@ -16,6 +16,15 @@ interface NavItem {
   icon: React.ElementType;
   badge?: number;
 }
+const getInitials = (name: string | null, fallback: string | null) => {
+  const displayName = name || fallback || "User";
+  return displayName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+};
 
 export default function AppSidebar({ page, setPage, collapsed, setCollapsed, logout, mobileOpen,
   setMobileOpen, }: {
@@ -160,12 +169,12 @@ export default function AppSidebar({ page, setPage, collapsed, setCollapsed, log
                     <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-sidebar" />
                   </div>
                 ) : (
-                  <Avatar
-                    initials={user?.name?.charAt(0).toUpperCase() || "AC"}
-                    color="#6366f1"
-                    size="sm"
-                    online={true}
-                  />
+                  <Avatar className="h-10 w-10 border border-border/50">
+                    <AvatarImage src={user?.profileUrl || undefined} alt={"Profile"} />
+                    <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
+                      {getInitials(user?.name || "", user?.email || "")}
+                    </AvatarFallback>
+                  </Avatar>
                 )}
 
                 <div className="flex-1 min-w-0">

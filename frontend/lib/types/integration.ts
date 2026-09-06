@@ -1,5 +1,5 @@
 
-export type PlatformIntegration = "WHATSAPP_BAYLIES" | "EMAIL" | "TELEGRAM";
+export type PlatformIntegration = "WHATSAPP_BAYLIES" | "EMAIL" | "TELEGRAM" | "API";
 
 export type StatusIntegration = "CONNECTING" | "CONNECTED" | "DISCONNECTED"
 export interface Integrations {

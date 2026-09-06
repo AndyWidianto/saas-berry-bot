@@ -1,5 +1,6 @@
-import { IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsInt, Min, Max, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PlatformType } from '@prisma/client';
 
 
 export class GetQueryDto {
@@ -24,4 +25,10 @@ export class QueryNotificationDto extends GetQueryDto {
   @IsOptional()
   @IsString()
   status: "READ" | "UNREAD";
+}
+
+export class GetQueryContactDto extends GetQueryDto {
+  @IsOptional()
+  @IsString()
+  platform?: PlatformType;
 }

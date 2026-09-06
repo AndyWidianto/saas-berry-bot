@@ -2,22 +2,11 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import { Minus, Plus, X } from "lucide-react"
 import { ActionBtn } from "./Action"
+import { Workspace } from "@/lib/types";
 
 
 
-const workspaces = [
-  { id: "ws_01k9m", name: "Acme Corp", owner: "Sarah Chen", plan: "Enterprise", credits: 48200, usage: 91, status: "active", registered: "2024-01-12", chatbots: 8 },
-  { id: "ws_02a3x", name: "NovaTech Solutions", owner: "James Okafor", plan: "Growth", credits: 3100, usage: 67, status: "active", registered: "2024-02-28", chatbots: 3 },
-  { id: "ws_03f7z", name: "Bright Retail", owner: "Priya Nair", plan: "Starter", credits: 280, usage: 94, status: "overdue", registered: "2024-03-15", chatbots: 1 },
-  { id: "ws_04b1y", name: "HealthFirst Clinic", owner: "Marcus Webb", plan: "Growth", credits: 12400, usage: 43, status: "active", registered: "2024-04-02", chatbots: 4 },
-  { id: "ws_05g8n", name: "EduPlatform", owner: "Aisha Diallo", plan: "Enterprise", credits: 78900, usage: 29, status: "active", registered: "2024-04-19", chatbots: 12 },
-  { id: "ws_06c2p", name: "SwiftLogistics", owner: "Tom Hendricks", plan: "Starter", credits: 0, usage: 100, status: "suspended", registered: "2024-05-07", chatbots: 1 },
-  { id: "ws_07h4q", name: "MediaHouse", owner: "Lena Vogel", plan: "Growth", credits: 6700, usage: 51, status: "active", registered: "2024-05-22", chatbots: 5 },
-  { id: "ws_08d5r", name: "FinanceEdge", owner: "Carlos Rivera", plan: "Enterprise", credits: 34500, usage: 72, status: "active", registered: "2024-06-01", chatbots: 9 },
-]
-
-
-export function AdjustBalanceModal({ workspace, onClose }: { workspace: (typeof workspaces)[0]; onClose: () => void }) {
+export function AdjustBalanceModal({ workspace, onClose }: { workspace: Workspace; onClose: () => void }) {
   const [op, setOp] = useState<"add" | "sub">("add")
   const [amount, setAmount] = useState("")
   const [reason, setReason] = useState("")

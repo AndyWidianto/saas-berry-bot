@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { Lock, Mail, ArrowRight, ShieldCheck, Eye, EyeOff, Sparkles } from "lucide-react";
 import useAxios from "@/lib/axios.control";
-import { ResponseLogin } from "@/types";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
+import { ResponseLogin } from "@/lib/types";
 
 export default function LoginPage() {
   const { AxiosPublic } = useAxios();
