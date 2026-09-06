@@ -14,6 +14,7 @@ import { ApiKeyModule } from "./apikeys/apikey.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { ContactModule } from "./contact/contact.module";
 import { NotificationModule } from "./notification/notification.module";
+import { AdminModule } from "./admin/admin.module";
 
 
 
@@ -33,7 +34,8 @@ import { NotificationModule } from "./notification/notification.module";
         ApiKeyModule,
         DashboardModule,
         ContactModule,
-        NotificationModule
+        NotificationModule,
+        AdminModule
     ]
 })
 export class ApiModule {}

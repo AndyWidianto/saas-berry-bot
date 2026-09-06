@@ -151,7 +151,7 @@ export default function IntegrationsPage() {
       ...(dev.platform === "TELEGRAM" ? {
         telegram: true
       } : dev.platform === "WHATSAPP_BAYLIES" ? {
-        whatsappNonOfficial: true,
+        whatsappNonOfficial: false,
       } : dev.platform === "EMAIL" ? {
         email: true,
       } : {})
@@ -198,7 +198,7 @@ export default function IntegrationsPage() {
     console.log(dev);
 
     try {
-      if (dev.platform === "WHATSAPP_BAYLIES") {
+      if (dev.platform === "WHATSAPP_BAYLIES" && dev.status !== "CONNECTED") {
         setIsConfigOpens(prev => ({
           ...prev,
           whatsappNonOfficial: true

@@ -5,11 +5,15 @@ import { motion, AnimatePresence } from "motion/react";
 import AppSidebar from "../../components/AppSidebar";
 import AppNavbar from "../../components/AppNavbar";
 import useAxios from "@/lib/axios-service";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import useAuthStore from "@/lib/store/authStore";
 import { useIsMobile } from "@/lib/hooks/UseIsMobile";
-import { SocketProvider } from "@/lib/context/SocketContext";
+import { SocketProvider, useSocket } from "@/lib/context/SocketContext";
 import StepGuideModal from "@/app/components/DocModal";
+import { Message } from "@/lib/types";
+import { useChatStore } from "@/lib/store/chatStore";
+import { toast } from "sonner";
+import { MessageToast } from "@/app/components/MessageToast";
 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -18,8 +22,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const [page, setPage] = useState("Dashboard");
     const [openMobile, setOpenMobile] = useState(true);
     const isMobile = useIsMobile(768);
+
+
+    const { addMessage, selectedContact } = useChatStore();
+    const { socket } = useSocket();
     const { AxiosPrivate } = useAxios();
     const { deleteSessionLogin } = useAuthStore();
+    const { workspace: workspaceId } = useParams();
+
     const router = useRouter();
 
     const handleLogout = async () => {
@@ -44,6 +54,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             setOpenMobile(false); // Reset state mobile drawer ketika kembali ke desktop
         }
     }, [isMobile]);
+
+    useEffect(() => {
+        if (!socket || !workspaceId) return;
+        const handleMessageUpsert = (data: Message) => {
+            if (workspaceId !== data.workspaceId) return;
+
+            addMessage(data);
+            if (!data.fromMe && selectedContact?.senderId !== data.senderId) {
+                toast.custom(() => <MessageToast message={data} />, {
+                    duration: 4000,
+                    position: 'top-right',
+                });
+            }
+        };
+        socket.on("message.upsert", handleMessageUpsert);
+        return () => {
+            socket.off("message.upsert", handleMessageUpsert);
+        };
+    }, [socket]);
 
     return (
         <SocketProvider>

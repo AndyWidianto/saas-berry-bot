@@ -11,4 +11,7 @@ export interface Contact {
     isBlocked: boolean;
     metadata: Record<string, any> | null;
     lastActiveAt: string;
+    lastMessage: string | null;
+    lastMessageAt: string;
+    unreadCount: number;
 }

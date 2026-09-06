@@ -1,7 +1,7 @@
 import { PrismaService } from "@library/prisma/prisma.service";
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import * as XLSX from 'xlsx';
-import { AIModel, Prisma, } from "@prisma/client";
+import { AIModel, PlanType, Prisma, Workspace, } from "@prisma/client";
 import * as mammoth from 'mammoth';
 import { GeminiService } from "@library/agent/gemini.service";
 import { KnowledgeChunk } from "@library/types";
@@ -9,6 +9,8 @@ import sanitizeHtml from 'sanitize-html';
 import { OpenaiService } from "@library/agent/openai.service";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import type { Cache } from "cache-manager";
 
 const pdf = require('pdf-parse-fork');
 
@@ -19,9 +21,33 @@ export class EmbeddingService {
         private prisma: PrismaService,
         private gemini: GeminiService,
         private openai: OpenaiService,
-        @InjectQueue("queue-knowledge-base") private queueKnowledge: Queue
+        @InjectQueue("queue-knowledge-base") private queueKnowledge: Queue,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache
     ) { }
 
+    async checkAndDeductQuotaRedisEmbedding(workspace: Workspace, totalChunk: number) {
+        if (workspace.plan === "PAY_AS_YOU_GO") {
+            return true;
+        }
+
+        // Gunakan format key harian agar otomatis terisolasi per hari
+        const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+        const key = `request:embedding:${workspace.id}:${today}`;
+        const LIMIT = 10;
+
+        const totalRequest = (await this.cacheManager.get<number>(key)) || 0;
+
+        // Cek apakah kuota sudah habis SEBELUM menambah
+        if ((totalRequest + totalChunk) >= LIMIT) {
+            return false; // Kuota habis!
+        }
+
+        // Langsung UPDATE (Increment) angkanya & set TTL 24 jam (86400000 ms di cache-manager v5+)
+        const nextRequest = totalRequest + totalChunk;
+        await this.cacheManager.set(key, nextRequest, 86400 * 1000);
+
+        return true;
+    }
     async prosesChunksAndEmebdding(workspaceId: string, modelEmbedding: AIModel | null, chunks: string[], { size, originalname, type }) {
         if (!modelEmbedding) {
             throw new NotFoundException("Model not found");
@@ -80,7 +106,7 @@ export class EmbeddingService {
             knowledge
         }
     }
-    async createKnowledgeItems(workspaceId: string, knowledgeId: string, chunks: string[], model: AIModel) {
+    async createKnowledgeItems(workspaceId: string, knowledgeId: string, chunks: string[], model: AIModel, plan: PlanType) {
         const dataKnowledgeItems: Prisma.KnowledgeItemCreateManyInput[] = chunks.map(chunk => ({
             knowledgeId: knowledgeId,
             workspaceId: workspaceId,
@@ -97,7 +123,8 @@ export class EmbeddingService {
                 workspaceId,
                 knowledgeId,
                 index,
-                model: model
+                model: model,
+                plan: plan
             },
             opts: {
                 // Pasang retry backoff agar otomatis mencoba ulang jika kena 429 Rate Limit

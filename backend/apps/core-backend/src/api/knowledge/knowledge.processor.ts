@@ -1,9 +1,10 @@
 import { GeminiService } from "@library/agent/gemini.service";
 import { OpenaiService } from "@library/agent/openai.service";
+import { BillingService } from "@library/billing/billing.service";
 import { PrismaService } from "@library/prisma/prisma.service";
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger, NotFoundException } from "@nestjs/common";
-import { AIModel } from "@prisma/client";
+import { AIModel, PlanType } from "@prisma/client";
 import { Job } from "bullmq";
 
 
@@ -14,7 +15,8 @@ export class KnowledgeProcessor extends WorkerHost {
     constructor(
         private gemini: GeminiService,
         private openai: OpenaiService,
-        private prisma: PrismaService
+        private prisma: PrismaService,
+        private billingService: BillingService
     ) {
         super();
     }
@@ -33,9 +35,9 @@ export class KnowledgeProcessor extends WorkerHost {
         workspaceId: string;
         knowledgeId: string;
         index: number;
-        model: AIModel
+        model: AIModel;
+        plan: PlanType;
     }) {
-        console.log("Data: ", data);
         const { workspaceId, knowledgeId, index, model } = data;
 
         try {
@@ -76,6 +78,10 @@ export class KnowledgeProcessor extends WorkerHost {
                 WHERE "id" = ${item.id}
             `;
 
+            if (data.plan !== "FREE") {
+                const totalCost = await this.billingService.totalCostInput("", item.content, model);
+                await this.updateBalanceAndCreateCreditLedger(workspaceId, totalCost.totalCost, "");
+            }
             await this.checkAndCompleteKnowledge(knowledgeId);
 
             return { success: true, itemId: item.id };
@@ -86,6 +92,27 @@ export class KnowledgeProcessor extends WorkerHost {
             // Melempar error agar BullMQ mendeteksi kegagalan dan memicu Retry / Backoff
             throw err;
         }
+    }
+
+    private async updateBalanceAndCreateCreditLedger(workspaceId: string, totalCost: number, filename: string) {
+        const [_workspaceBalance] = await this.prisma.$transaction([
+            this.prisma.workspaceBalance.update({
+                where: { workspaceId },
+                data: {
+                    amount: {
+                        decrement: totalCost
+                    }
+                }
+            }),
+            this.prisma.creditLedger.create({
+                data: {
+                    amount: totalCost,
+                    type: "USAGE_RAG",
+                    workspaceId,
+                    description: `Melakukan embedding file ${filename}`
+                }
+            })
+        ])
     }
 
     private async checkAndCompleteKnowledge(knowledgeId: string) {

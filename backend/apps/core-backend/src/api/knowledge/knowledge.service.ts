@@ -1,8 +1,8 @@
 import { PrismaService } from "../../../../lib/prisma/prisma.service";
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { CreateKnowledgeAI, PayloadJWT, KnowledgeChunk } from "../../../../lib/types";
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { CreateKnowledgeAI, PayloadJWT, KnowledgeChunk, WorkspaceWithModels } from "../../../../lib/types";
 import * as XLSX from 'xlsx';
-import { AIModel, Prisma, WorkspaceBalance } from "@prisma/client";
+import { AIModel, Prisma, Workspace, WorkspaceBalance } from "@prisma/client";
 import { GeminiService } from "../../../../lib/agent/gemini.service";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import type { Cache } from "cache-manager";
@@ -25,6 +25,7 @@ export class KnowledgeService {
         private embeddingService: EmbeddingService,
         @Inject(CACHE_MANAGER) private cacheManager: Cache
     ) { }
+
     async createKnowledge(user: PayloadJWT, workspaceId: string, data: CreateKnowledgeAI) {
 
         // validasi role user, jika role review maka tidak boleh melakukan create knowledge
@@ -42,7 +43,17 @@ export class KnowledgeService {
         };
 
         const { rawText, chunks, type } = await this.embeddingService.sterilizedFile(data.file);
-        const { totalCost } = await this.validateBalance(rawText, modelEmbedding, workspaceBalance);
+
+        const success = await this.embeddingService.checkAndDeductQuotaRedisEmbedding(workspace, chunks.length);
+        if (!success) {
+            throw new HttpException(
+                "Batas 10 request gratis harian kamu sudah habis. Silakan upgrade ke paket Pay-As-You-Go atau coba lagi besok.",
+                HttpStatus.TOO_MANY_REQUESTS // 429
+            );
+        }
+        if (workspace.plan !== "FREE") {
+            await this.validateBalance(rawText, modelEmbedding, workspaceBalance);
+        }
 
         const knowledge = await this.prisma.knowledge.create({
             data: {
@@ -50,31 +61,12 @@ export class KnowledgeService {
                 name: data.file.originalname,
                 totalChunk: chunks.length,
                 modelName: modelEmbedding.name,
-                type:  type ?? "text",
+                type: type ?? "text",
                 status: "PROCESSING",
                 workspaceId: workspaceId,
             }
         });
-        const knowledgeItems = await this.embeddingService.createKnowledgeItems(workspaceId, knowledge.id, chunks, modelEmbedding);
-
-        const [_workspaceBalance] = await this.prisma.$transaction([
-            this.prisma.workspaceBalance.update({
-                where: { workspaceId },
-                data: {
-                    amount: {
-                        decrement: totalCost.totalCost
-                    }
-                }
-            }),
-            this.prisma.creditLedger.create({
-                data: {
-                    amount: totalCost.totalCost,
-                    type: "USAGE_RAG",
-                    workspaceId,
-                    description: `Melakukan embedding file ${data.file.originalname}`
-                }
-            })
-        ])
+        const knowledgeItems = await this.embeddingService.createKnowledgeItems(workspaceId, knowledge.id, chunks, modelEmbedding, workspace.plan);
         await this.clearKnowledgeCache(workspaceId);
 
         return {
@@ -101,9 +93,19 @@ export class KnowledgeService {
         const result = await this.embeddingService.fetchDataAndSterilize(data.url);
         const convertString = this.embeddingService.cleanTextSpacing(this.embeddingService.convertToVectorInput(result).trim());
 
-        const { totalCost } = await this.validateBalance(convertString, modelEmbedding, workspaceBalance);
-
         const chunks = this.embeddingService.chunking(convertString);
+
+        const success = await this.embeddingService.checkAndDeductQuotaRedisEmbedding(workspace, chunks.length);
+        if (!success) {
+            throw new HttpException(
+                "Batas 10 request gratis harian kamu sudah habis. Silakan upgrade ke paket Pay-As-You-Go atau coba lagi besok.",
+                HttpStatus.TOO_MANY_REQUESTS // 429
+            );
+        }
+
+        if (workspace.plan !== "FREE") {
+            await this.validateBalance(convertString, modelEmbedding, workspaceBalance);
+        }
 
         const sizeBytes = this.embeddingService.getTextSizeBytes(convertString);
         const knowledge = await this.prisma.knowledge.create({
@@ -117,26 +119,7 @@ export class KnowledgeService {
                 workspaceId: workspaceId,
             }
         });
-        const knowledgeItems = await this.embeddingService.createKnowledgeItems(workspaceId, knowledge.id, chunks, modelEmbedding);
-
-        const [_workspaceBalance] = await this.prisma.$transaction([
-            this.prisma.workspaceBalance.update({
-                where: { workspaceId },
-                data: {
-                    amount: {
-                        decrement: totalCost.totalCost
-                    }
-                }
-            }),
-            this.prisma.creditLedger.create({
-                data: {
-                    amount: totalCost.totalCost,
-                    type: "USAGE_RAG",
-                    workspaceId,
-                    description: `Melakukan embedding url ${data.url}`
-                }
-            })
-        ])
+        const knowledgeItems = await this.embeddingService.createKnowledgeItems(workspaceId, knowledge.id, chunks, modelEmbedding, workspace.plan);
         await this.clearKnowledgeCache(workspaceId);
 
 

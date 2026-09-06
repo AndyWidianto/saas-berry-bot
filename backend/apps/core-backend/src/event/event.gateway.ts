@@ -4,6 +4,7 @@ import { PayloadUser } from "../../../lib/types";
 import { JwtService } from "@nestjs/jwt";
 import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
+import { Message } from "@prisma/client";
 
 
 @WebSocketGateway({
@@ -73,4 +74,15 @@ export class EventGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.server.to(targetRoom).emit("integration.update", { instanceName, status });
     }
 
+    newMessage(userId: string, data: Message) {
+        const targetRoom = `user:${userId}`;
+
+        // Ambil daftar socket active di room ini
+        const activeSockets = this.server.sockets.adapter.rooms.get(targetRoom);
+        const count = activeSockets ? activeSockets.size : 0;
+
+        console.log(`📡 [DEBUG] Mengirim ke ${targetRoom} | Jumlah Client Active: ${count}`);
+
+        this.server.to(targetRoom).emit("message.upsert", data);
+    }
 }

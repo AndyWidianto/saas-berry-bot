@@ -16,6 +16,7 @@ import { NodemailerModule } from '@library/nodemailer/nodemailer.module';
 import { QueueChatbotModule } from './queue-chatbot/queue-chatbot.module';
 import { EmbeddingModule } from '@library/shared/embedding.module';
 import { AgentModule } from '@library/agent/agent.module';
+import { ChattingModule } from '@library/chatting/chatting.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AgentModule } from '@library/agent/agent.module';
     EmbeddingModule,
     NodemailerModule,
     QueueChatbotModule,
+    ChattingModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ".env"

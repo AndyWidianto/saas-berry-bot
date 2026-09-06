@@ -110,10 +110,10 @@ export class UsersService {
 
         try {
             if (existing.thumbnail) {
-                await this.storage.deleteFile(existing.thumbnail);
+                await this.storage.deleteProfile(existing.thumbnail);
             }
         } catch (err) {
-            await this.storage.deleteFile(`${file.filename}`);
+            await this.storage.deleteProfile(`${file.filename}`);
             console.error("Error: ", err);
             throw err;
         }

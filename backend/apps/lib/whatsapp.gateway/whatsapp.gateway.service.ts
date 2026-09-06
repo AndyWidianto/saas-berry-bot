@@ -1,4 +1,4 @@
-import { SendMessageDto } from "@library/dto/message.dto";
+import { MessageMediaDto, MessageTextDto, SendMessageDto } from "@library/dto/message.dto";
 import { HttpException, Injectable, InternalServerErrorException, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
@@ -19,13 +19,26 @@ export class WhatsappGatewayService implements OnModuleInit {
         this.secretKey = this.configService.get<string>("SECRET_WHATSAPP") || "eweowepoqepqeopq";
     }
 
-    async sendMessage(workspaceId: string, instanceName: string, data: SendMessageDto) {
+    async sendMessage(workspaceId: string, data: MessageTextDto) {
         try {
-            const res = await axios.post(`${this.baseUrl}/${workspaceId}/whatsapp/sendMessage`, {
-                instanceName,
-                to: data.target,
-                text: data.message
-            }, {
+            const res = await axios.post(`${this.baseUrl}/${workspaceId}/whatsapp/sendMessage`, data, {
+                headers: {
+                    "secret-key": this.secretKey
+                }
+            });
+            const result = res.data;
+            return result;
+        } catch (err) {
+            if (axios.isAxiosError(err)) {
+                this.logger.error("Error: ", err.status);
+            }
+            console.error("Fetch error: ", err);
+        }
+    }
+
+    async sendMedia(workspaceId: string, data: MessageMediaDto) {
+        try {
+            const res = await axios.post(`${this.baseUrl}/${workspaceId}/whatsapp/sendMedia`, data, {
                 headers: {
                     "secret-key": this.secretKey
                 }

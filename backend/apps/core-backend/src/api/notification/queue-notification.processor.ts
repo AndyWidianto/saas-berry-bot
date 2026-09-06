@@ -6,7 +6,7 @@ import { PrismaService } from "@library/prisma/prisma.service";
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Logger } from "@nestjs/common";
-import { AIModel, Prisma, StatusIntegration } from "@prisma/client";
+import { AIModel, Message, Prisma, StatusIntegration } from "@prisma/client";
 import { Job } from "bullmq";
 import type { Cache } from "cache-manager";
 
@@ -44,9 +44,17 @@ export class QueueNotificationProcessor extends WorkerHost {
                 await this.sendModelErrorAlert(workspaceId, model);
                 await this.sendModelErrorAlertAdmin(workspaceId, model);
                 break;
+            case "notif-message":
+                await this.notifNewMessage(data);
+                break;
         }
     }
-
+    async notifNewMessage(data: Message) {
+        const workspace = await this.prisma.workspace.findFirst({
+            where: { id: data.workspaceId }
+        });
+        this.eventGateway.newMessage(workspace?.ownerId || "", data);
+    }
     async handleNotifModelNotSetting(workspaceId: string) {
         try {
             const workspace = await this.prisma.workspace.findUnique({

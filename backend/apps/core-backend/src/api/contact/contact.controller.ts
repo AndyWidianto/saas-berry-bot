@@ -3,7 +3,7 @@ import { ContactService } from "./contact.service";
 import { AuthGuard } from "@nestjs/passport";
 import { CreateWorkspaceContactDto, DeleteContactsDto } from "@library/dto/contact.dto";
 import type { RequestAndPayload } from "@library/types";
-import { GetQueryDto } from "@library/dto/query.dto";
+import { GetQueryContactDto, GetQueryDto } from "@library/dto/query.dto";
 import { SkipThrottle } from "@nestjs/throttler";
 
 
@@ -19,7 +19,7 @@ export class ContactController {
     @SkipThrottle()
     @Get()
     @UseGuards(AuthGuard("jwt"))
-    async getAll(@Req() req: RequestAndPayload, @Param("workspaceId") workspaceId: string, @Query() query: GetQueryDto) {
+    async getAll(@Req() req: RequestAndPayload, @Param("workspaceId") workspaceId: string, @Query() query: GetQueryContactDto) {
         return await this.service.getAll(req.user, workspaceId, query);
     }
 

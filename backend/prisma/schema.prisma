@@ -44,6 +44,12 @@ model User {
   @@map("users")
 }
 
+enum PlanType {
+  FREE // Paket gratis (terkena limit 10 req/hari)
+  PAY_AS_YOU_GO // Paket bayar sesuai pemakaian (saldo)
+  PRO_MONTHLY // Paket langganan bulanan
+}
+
 model Workspace {
   id      String  @id @default(uuid())
   name    String // Nama ruang kerja, misal: "Tim Marketing A"
@@ -65,6 +71,8 @@ model Workspace {
   workingHoursEnabled Boolean @default(false) // Toggle apakah aturan jam kerja dipakai/tidak
   timezone            String  @default("Asia/Jakarta") // Mencegah perbedaan jam server & pengguna
   workingHours        Json?
+
+  plan        PlanType @default(FREE)
 
   notificationSettings Json?
 
@@ -242,7 +250,7 @@ model Knowledge {
   type       String          @default("txt")
   totalChunk Int             @default(0) @map("total_chunk") // Ditambahkan @map agar konsisten di DB
   size       Int // Diubah ke Int agar aman dari JSON serialization error
-  modelName  String @default("text-embedding-001")
+  modelName  String          @default("text-embedding-001")
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -282,9 +290,10 @@ model Message {
   senderName String? @map("sender_name") // Menggantikan push_name
 
   // Konten Pesan
-  content  String  @db.Text
-  type     String  @default("text") // text, image, document, audio, video
-  mediaUrl String? @map("media_url") // Tambahan: Penting untuk pesan non-teks
+  content   String  @db.Text
+  type      String  @default("text") // text, image, document, audio, video
+  mediaUrl  String? @map("media_url") // Tambahan: Penting untuk pesan non-teks
+  thumbnail String?
 
   // user 
   workspaceId String
@@ -309,6 +318,7 @@ enum TypeNotification {
   ERROR
   SUCCESS
 }
+
 model Notification {
   id          String @id @default(uuid())
   workspaceId String // ID User SaaS pemilik notifikasi
@@ -472,7 +482,7 @@ model AiLog {
   question String @db.Text
   answer   String @db.Text
 
-  senderJid  String?
+  senderJid String?
 
   // Metrik Performa AI
   confidence  Float // Nilai skor misal: 0.85 (85%)
@@ -596,6 +606,10 @@ model Contact {
   // Relasi ke Workspace (Multi-tenant isolation)
   workspaceId String    @map("workspace_id")
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  lastMessage   String?  @db.Text // Teks pesan terakhir untuk snippet sidebar
+  lastMessageAt DateTime @default(now()) // Untuk sorting kontak (ORDER BY lastMessageAt DESC)
+  unreadCount   Int      @default(0)
 
   messages Message[]
 

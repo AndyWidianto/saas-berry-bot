@@ -1,9 +1,10 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsNotEmpty, IsOptional, Matches, MinLength } from "class-validator";
+import { PlatformType } from "@prisma/client";
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean, IsUrl, IsIn } from 'class-validator';
 
 export class SendMessageDto {
     @ApiProperty()
-    @IsNotEmpty({ message: "Field type is required"})
+    @IsNotEmpty({ message: "Field type is required" })
     type: "text" | "image" | "voice";
 
     @ApiProperty()
@@ -21,7 +22,7 @@ export class SendMessageDto {
 
 export class SendMessageApiDto {
     @ApiProperty()
-    @IsNotEmpty({ message: "Field type is required"})
+    @IsNotEmpty({ message: "Field type is required" })
     type: "text" | "image" | "voice";
 
     @ApiProperty()
@@ -35,7 +36,7 @@ export class SendMessageApiDto {
 
 export class MessageTextDto {
     @ApiProperty()
-    @IsNotEmpty({ message: "Field instanceName is required"})
+    @IsNotEmpty({ message: "Field instanceName is required" })
     instanceName: string;
 
     @ApiProperty()
@@ -48,23 +49,61 @@ export class MessageTextDto {
 }
 
 
+export class MessageMediaDto {
+    @ApiProperty()
+    @IsNotEmpty({ message: "Field instanceName is required" })
+    instanceName: string;
+
+    @ApiProperty()
+    @IsNotEmpty({ message: "Field to is required" })
+    to: string;
+
+    @ApiProperty()
+    @IsNotEmpty({ message: "iamgeUrl is required" })
+    imageUrl: string;
+
+    @ApiProperty()
+    @IsOptional()
+    caption: string;
+}
+
 export class CreateMessageDto {
+    @IsEnum(PlatformType)
+    @IsNotEmpty()
+    platform: PlatformType;
 
+    @IsString()
     @IsOptional()
-    whatsappId?: string;
+    providerMessageId?: string;
 
-    @IsNotEmpty({ message: 'remoteJid tidak boleh kosong' })
-    remoteJid: string;
-
+    @IsBoolean()
     @IsOptional()
-    pushName?: string;
+    fromMe?: boolean = false;
 
-    @IsNotEmpty({ message: 'content tidak boleh kosong' })
+    @IsString()
+    @IsNotEmpty()
+    senderId: string;
+
+    @IsString()
+    @IsOptional()
+    senderName?: string;
+
+    @IsString()
+    @IsNotEmpty()
     content: string;
 
-    @IsNotEmpty({ message: 'type tidak boleh kosong' })
-    type: string;
+    @IsIn(['text', 'image', 'document', 'audio', 'video'])
+    @IsOptional()
+    type?: string = 'text';
 
-    @IsNotEmpty({ message: 'status tidak boleh kosong' })
-    status: string;
+    @IsOptional()
+    thumbnail?: string;
+
+    //@IsUrl({}, { message: 'mediaUrl harus berupa URL valid' })
+    @IsOptional()
+    mediaUrl?: string;
+
+    @IsString()
+    @IsOptional()
+    status?: string = 'sent';
 }

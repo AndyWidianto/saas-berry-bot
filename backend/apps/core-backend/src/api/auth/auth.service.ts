@@ -26,6 +26,19 @@ export class AuthService {
     ) { }
 
 
+    async DiscountWorkspaceFirst(userId: string, name: string) {
+        const workspace = await this.prisma.workspace.create({
+            data: {
+                name: `Default_${name}`,
+                ownerId: userId,
+                workspaceBalances: {
+                    create: {
+                        amount: 5000,
+                    }
+                },
+            }
+        })
+    }
     async contactMe(data: ContactMeDto) {
         try {
             const htmlContent = await render(
@@ -41,7 +54,6 @@ export class AuthService {
                 `[Contact Form] Pesan Baru dari ${data.name}`,
                 htmlContent,
             );
-
             return {
                 statusCode: 200,
                 message: 'Pesan berhasil terkirim.',
