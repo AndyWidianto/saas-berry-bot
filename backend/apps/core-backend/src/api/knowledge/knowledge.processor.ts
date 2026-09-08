@@ -37,8 +37,9 @@ export class KnowledgeProcessor extends WorkerHost {
         index: number;
         model: AIModel;
         plan: PlanType;
+        filename: string;
     }) {
-        const { workspaceId, knowledgeId, index, model } = data;
+        const { workspaceId, knowledgeId, index, model, filename } = data;
 
         try {
             const item = await this.prisma.knowledgeItem.findFirst({
@@ -80,7 +81,7 @@ export class KnowledgeProcessor extends WorkerHost {
 
             if (data.plan !== "FREE") {
                 const totalCost = await this.billingService.totalCostInput("", item.content, model);
-                await this.updateBalanceAndCreateCreditLedger(workspaceId, totalCost.totalCost, "");
+                await this.updateBalanceAndCreateCreditLedger(workspaceId, totalCost.totalCost, filename);
             }
             await this.checkAndCompleteKnowledge(knowledgeId);
 
@@ -106,7 +107,7 @@ export class KnowledgeProcessor extends WorkerHost {
             }),
             this.prisma.creditLedger.create({
                 data: {
-                    amount: totalCost,
+                    amount: -totalCost,
                     type: "USAGE_RAG",
                     workspaceId,
                     description: `Melakukan embedding file ${filename}`

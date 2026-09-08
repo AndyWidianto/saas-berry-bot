@@ -66,8 +66,14 @@ export class KnowledgeService {
                 workspaceId: workspaceId,
             }
         });
-        const knowledgeItems = await this.embeddingService.createKnowledgeItems(workspaceId, knowledge.id, chunks, modelEmbedding, workspace.plan);
-        await this.clearKnowledgeCache(workspaceId);
+        const knowledgeItems = await this.embeddingService.createKnowledgeItems(
+            workspaceId, 
+            knowledge.id, 
+            chunks, 
+            modelEmbedding, 
+            workspace.plan,
+            data.file.originalname
+        );
 
         return {
             message: "Knowledge processed and vectorized",
@@ -119,8 +125,7 @@ export class KnowledgeService {
                 workspaceId: workspaceId,
             }
         });
-        const knowledgeItems = await this.embeddingService.createKnowledgeItems(workspaceId, knowledge.id, chunks, modelEmbedding, workspace.plan);
-        await this.clearKnowledgeCache(workspaceId);
+        const knowledgeItems = await this.embeddingService.createKnowledgeItems(workspaceId, knowledge.id, chunks, modelEmbedding, workspace.plan, data.url);
 
 
         return {

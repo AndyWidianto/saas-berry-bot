@@ -101,7 +101,7 @@ export default function BillingPage() {
         }
     };
 
-    // 2. Fetch Invoices (Tab 1)
+    // Fetch Invoices (Tab 1)
     const fetchInvoices = async (page: number, currentNextId?: string | null) => {
         try {
             setLoading(true);
@@ -124,7 +124,7 @@ export default function BillingPage() {
         }
     };
 
-    // 3. Fetch Credit Ledgers (Tab 2)
+    // Fetch Credit Ledgers (Tab 2)
     const fetchLedgers = async (page: number, currentNextId?: string | null) => {
         try {
             setLoading(true);
@@ -200,6 +200,7 @@ export default function BillingPage() {
                     }
                 });
             }
+            setInvoices(prev => [result.data, ...prev]);
         } catch (err) {
             console.error("Checkout error: ", err);
             if (axios.isAxiosError(err)) {
@@ -250,9 +251,9 @@ export default function BillingPage() {
                     </div>
 
                     <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50">
-                        <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-medium">
+                        {/*<span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-medium">
                             ⚡ Mode Sandbox / Testing
-                        </span>
+                        </span>*/}
                         <Btn
                             variant="primary"
                             size="sm"
