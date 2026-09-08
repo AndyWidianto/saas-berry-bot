@@ -470,7 +470,13 @@ export class ChatbotService {
                 workspaceId: dataApiKey.workspaceId,
             }
         });
-        const knowledgeItems = await this.embeddingService.createKnowledgeItems(dataApiKey.workspaceId, knowledge.id, chunks, modelEmbedding, existingWorkspace.plan);
+        const knowledgeItems = await this.embeddingService.createKnowledgeItems(
+            dataApiKey.workspaceId, 
+            knowledge.id, chunks, 
+            modelEmbedding, 
+            existingWorkspace.plan,
+            objectFile.originalname
+        );
         return {
             success: true,
             data: {

@@ -106,7 +106,7 @@ export class EmbeddingService {
             knowledge
         }
     }
-    async createKnowledgeItems(workspaceId: string, knowledgeId: string, chunks: string[], model: AIModel, plan: PlanType) {
+    async createKnowledgeItems(workspaceId: string, knowledgeId: string, chunks: string[], model: AIModel, plan: PlanType, filename: string) {
         const dataKnowledgeItems: Prisma.KnowledgeItemCreateManyInput[] = chunks.map(chunk => ({
             knowledgeId: knowledgeId,
             workspaceId: workspaceId,
@@ -124,7 +124,8 @@ export class EmbeddingService {
                 knowledgeId,
                 index,
                 model: model,
-                plan: plan
+                plan: plan,
+                filename: filename
             },
             opts: {
                 // Pasang retry backoff agar otomatis mencoba ulang jika kena 429 Rate Limit

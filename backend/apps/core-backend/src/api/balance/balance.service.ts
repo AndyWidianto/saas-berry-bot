@@ -28,8 +28,9 @@ export class BalanceService implements OnModuleInit {
 
     async topup(user: PayloadJWT, workspaceId: string, data: TopupDto) {
         await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
-        if (data.nominal < 20_000) {
-            throw new BadRequestException("Minimal topup 20000");
+        const MINIMUM_TOPUP = 20_000;
+        if (data.nominal < MINIMUM_TOPUP) {
+            throw new BadRequestException(`Minimal topup ${MINIMUM_TOPUP}`);
         }
 
         const now = new Date();
@@ -64,7 +65,7 @@ export class BalanceService implements OnModuleInit {
 
         const transaction = await (this.snap as any).createTransaction(parameter);
 
-        await this.prisma.invoice.create({
+        const invoice = await this.prisma.invoice.create({
             data: {
                 invoiceNumber: orderId,
                 workspaceId: workspaceId,
@@ -79,10 +80,11 @@ export class BalanceService implements OnModuleInit {
             }
         });
 
-        return { token: transaction.token, redirect: transaction.redirect_url };
+        return { token: transaction.token, redirect: transaction.redirect_url, data: invoice };
     }
 
     async midtransCallback(payload: CallbackMidtransPayload, secretKey: string) {
+        console.log("Payload: ", payload);
         const serverSecretKey = this.configService.get<string>("CALLBACK_MIDTRANS_SECRET_KEY");
         const serverKey = this.configService.get<string>("MIDTRANS_SERVER_KEY");
 
@@ -108,10 +110,15 @@ export class BalanceService implements OnModuleInit {
         if (!invoice) {
             throw new NotFoundException("Invoice tidak ditemukan");
         }
+        const workspace = await this.prisma.workspace.findFirst({
+            where: { id: invoice.workspaceId }
+        });
+        if (!workspace) {
+            throw new NotFoundException("Workspace tidak ditemukan");
+        }
 
         if (transaction_status === 'capture' || transaction_status === 'settlement') {
             if (fraud_status === 'accept' || !fraud_status) {
-                console.log(`Order ${order_id} berhasil dibayar.`);
                 await this.prisma.$transaction([
                     this.prisma.invoice.update({
                         where: { invoiceNumber: order_id },
@@ -135,10 +142,17 @@ export class BalanceService implements OnModuleInit {
                             type: "TOP_UP",
                             description: `Topup via Midtrans (${invoice.invoiceNumber})`,
                         }
-                    })
+                    }),
+                    ...(workspace.plan === "FREE" ? [
+                        this.prisma.workspace.update({
+                            where: { id: workspace.id },
+                            data: {
+                                plan: "PAY_AS_YOU_GO"
+                            }
+                        })
+                    ] : [])
                 ])
             }
-            console.log("Test...");
         } else if (['cancel', 'deny', 'expire'].includes(transaction_status)) {
             await this.prisma.invoice.update({
                 where: { invoiceNumber: order_id },
