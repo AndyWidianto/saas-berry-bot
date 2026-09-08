@@ -39,17 +39,17 @@ export class BalanceService implements OnModuleInit {
         const startOfMonth = new Date(year, now.getMonth(), 1);
         const endOfMonth = new Date(year, now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-        const totalInvoiceThisMonth = await this.prisma.invoice.count({
-            where: {
-                createdAt: {
-                    gte: startOfMonth,
-                    lte: endOfMonth
-                }
-            }
-        });
+        // const totalInvoiceThisMonth = await this.prisma.invoice.count({
+        //     where: {
+        //         createdAt: {
+        //             gte: startOfMonth,
+        //             lte: endOfMonth
+        //         }
+        //     }
+        // });
 
-        const nextNumber = String(totalInvoiceThisMonth + 1).padStart(4, '0');
-        const orderId = `INV-${year}-${month}-${nextNumber}`;
+        // const nextNumber = String(totalInvoiceThisMonth + 1).padStart(4, '0');
+        const orderId = `INV-${Date.now()}`;
 
         const parameter = {
             transaction_details: {
