@@ -36,6 +36,7 @@ export class WhatsappMessageProcessor extends WorkerHost implements OnModuleInit
                     await this.whatsappService.sendMessage(this.secretKey, data as MessageTextDto);
                     break;
                 case "send-media":
+                    this.logger.log("Mengirim media baru...");
                     await this.whatsappService.sendMedia(this.secretKey, data as MessageMediaDto);
                 case "presence-update":
                     this.logger.log("Memperbarui presence whatsapp");

@@ -1,3 +1,4 @@
+import { BankItem, CustomerFieldItem, MetodeDelivery } from "./products";
 
 export type PlanType = "FREE" | "PAY_AS_YOU_GO" | "PRO_MONTHLY";
 export interface Workspace {
@@ -11,6 +12,19 @@ export interface Workspace {
     rewrite: boolean;
     isAiActive: boolean;
     plan: PlanType;
+    isProductActive: boolean;
+    productSettings?: {
+        fields: CustomerFieldItem[],
+        paymentMethod: {
+            qris?: {
+                name: string;
+                imageUrl: string | null;
+                filename: string | null;
+            },
+            bankItems: BankItem[],
+        },
+        deliveryMethod?: MetodeDelivery;
+    },
     greetingText: string | null;
     systemRules: string | null;
     activeChatModelId: string;
@@ -66,4 +80,10 @@ export interface UpdateWorkspace {
     activeEmbeddingModelId?: string;
     workingHours?: Record<Days, WorkingHourDetail>;
     notificationSettings?: Partial<Record<NotificationSettingType, any>>;
+}
+
+
+export interface ResponseUpload {
+    url: string;
+    thumbnail: string;
 }

@@ -106,6 +106,46 @@ export class EmbeddingService {
             knowledge
         }
     }
+    async createKnowledgeItemsProduct(workspaceId: string, productId: string, chunks: string[], model: AIModel, plan: PlanType, filename: string) {
+        const dataKnowledgeItems: Prisma.KnowledgeItemCreateManyInput[] = chunks.map(chunk => ({
+            productId: productId,
+            workspaceId: workspaceId,
+            content: chunk
+        }));
+
+        await this.prisma.knowledgeItem.createMany({
+            data: dataKnowledgeItems
+        });
+
+        const jobs = chunks.map((_, index) => ({
+            name: "embedding",
+            data: {
+                workspaceId,
+                productId,
+                index,
+                model: model,
+                plan: plan,
+                filename: filename
+            },
+            opts: {
+                // Pasang retry backoff agar otomatis mencoba ulang jika kena 429 Rate Limit
+                attempts: 5,
+                backoff: {
+                    type: 'exponential',
+                    delay: 12000, // Coba ulang dengan jeda 3s, 6s, 12s...
+                },
+                removeOnComplete: true, // Hapus job dari Redis jika selesai agar RAM tetap hemat
+                removeOnFail: { age: 86400 } // Simpan job gagal selama 24 jam untuk debugging
+            }
+        }));
+
+        await this.queueKnowledge.addBulk(jobs);
+
+        return {
+            message: "Proses embedding berhasil dimasukkan ke antrean",
+            totalChunks: chunks.length
+        };
+    }
     async createKnowledgeItems(workspaceId: string, knowledgeId: string, chunks: string[], model: AIModel, plan: PlanType, filename: string) {
         const dataKnowledgeItems: Prisma.KnowledgeItemCreateManyInput[] = chunks.map(chunk => ({
             knowledgeId: knowledgeId,
@@ -360,5 +400,28 @@ export class EmbeddingService {
             }
         }
         return String(data);
+    }
+
+    async convertToVector(content: string, model: AIModel) {
+        let vector: number[] = [];
+        if (model.provider === "OPENAI") {
+            const responseOpenai = await this.openai.embeddings(model.modelCode, content);
+            vector = responseOpenai.vector;
+        }
+        if (model.provider === "GOOGLE") {
+            vector = await this.gemini.embeddingsGemini(model.modelCode, content);
+        }
+        const vectorStr = `[${vector.join(',')}]`;
+        return vectorStr;
+    }
+
+    async updateKnowledgeItems(id: string, vectorStr: string) {
+        await this.prisma.$executeRaw`
+                UPDATE "knowledge_items"
+                SET 
+                    "embedding" = ${vectorStr}::vector,
+                    "updated_at" = NOW()
+                WHERE "id" = ${id}
+            `;
     }
 }

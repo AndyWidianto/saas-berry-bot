@@ -84,7 +84,6 @@ export class BalanceService implements OnModuleInit {
     }
 
     async midtransCallback(payload: CallbackMidtransPayload, secretKey: string) {
-        console.log("Payload: ", payload);
         const serverSecretKey = this.configService.get<string>("CALLBACK_MIDTRANS_SECRET_KEY");
         const serverKey = this.configService.get<string>("MIDTRANS_SERVER_KEY");
 

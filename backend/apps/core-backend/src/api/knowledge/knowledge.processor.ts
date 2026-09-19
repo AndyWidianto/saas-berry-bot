@@ -2,6 +2,7 @@ import { GeminiService } from "@library/agent/gemini.service";
 import { OpenaiService } from "@library/agent/openai.service";
 import { BillingService } from "@library/billing/billing.service";
 import { PrismaService } from "@library/prisma/prisma.service";
+import { EmbeddingService } from "@library/shared/embedding.service";
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger, NotFoundException } from "@nestjs/common";
 import { AIModel, PlanType } from "@prisma/client";
@@ -16,7 +17,8 @@ export class KnowledgeProcessor extends WorkerHost {
         private gemini: GeminiService,
         private openai: OpenaiService,
         private prisma: PrismaService,
-        private billingService: BillingService
+        private billingService: BillingService,
+        private embeddingService: EmbeddingService
     ) {
         super();
     }
@@ -33,20 +35,25 @@ export class KnowledgeProcessor extends WorkerHost {
 
     async handleEmbedding(data: {
         workspaceId: string;
-        knowledgeId: string;
+        knowledgeId?: string;
         index: number;
         model: AIModel;
         plan: PlanType;
         filename: string;
+        productId?: string;
     }) {
-        const { workspaceId, knowledgeId, index, model, filename } = data;
+        const { workspaceId, knowledgeId, index, model, filename, productId } = data;
 
         try {
             const item = await this.prisma.knowledgeItem.findFirst({
                 where: {
-                    knowledgeId: knowledgeId,
+                    ...(knowledgeId ? {
+                        knowledgeId: knowledgeId
+                    } : {}),
+                    ...(productId ? {
+                        productId: productId
+                    } : {}),
                     workspaceId: workspaceId,
-                    // Jika belum ada kolom index, pastikan query mengambil item yang sesuai
                 },
                 // Opsional: skip & take jika Anda  mengandalkanoffset alih-alih kolom index
                 skip: index,
@@ -61,29 +68,17 @@ export class KnowledgeProcessor extends WorkerHost {
                 return;
             }
 
-            let vector: number[] = [];
-            if (model.provider === "OPENAI") {
-                const responseOpenai = await this.openai.embeddings(model.modelCode, item.content);
-                vector = responseOpenai.vector;
-            }
-            if (model.provider === "GOOGLE") {
-                vector = await this.gemini.embeddingsGemini(model.modelCode, item.content);
-            }
-            const vectorStr = `[${vector.join(',')}]`;
-
-            await this.prisma.$executeRaw`
-                UPDATE "knowledge_items"
-                SET 
-                    "embedding" = ${vectorStr}::vector,
-                    "updated_at" = NOW()
-                WHERE "id" = ${item.id}
-            `;
+            const vectorStr = await this.embeddingService.convertToVector(item.content, model);
+            
+            await this.embeddingService.updateKnowledgeItems(item.id, vectorStr);
 
             if (data.plan !== "FREE") {
                 const totalCost = await this.billingService.totalCostInput("", item.content, model);
                 await this.updateBalanceAndCreateCreditLedger(workspaceId, totalCost.totalCost, filename);
             }
-            await this.checkAndCompleteKnowledge(knowledgeId);
+            if (knowledgeId) {
+                await this.checkAndCompleteKnowledge(knowledgeId);
+            }
 
             return { success: true, itemId: item.id };
 

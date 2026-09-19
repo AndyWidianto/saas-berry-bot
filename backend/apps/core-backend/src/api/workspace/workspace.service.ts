@@ -2,7 +2,7 @@ import { NodemailerService } from "@library/nodemailer/nodemailer.service";
 import { CreateMemberDto, CreateWorkspaceDto, NotificationSettingType, UpdateWorkspaceDto } from "../../../../lib/dto/workspace.dto";
 import { PrismaService } from "../../../../lib/prisma/prisma.service";
 import { PayloadJWT, WorkspaceWithModels, KnowledgeChunk } from "../../../../lib/types";
-import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { AIModel, Prisma, Workspace } from "@prisma/client";
 import InviteEmail from "@library/mail/templates/InviteMember";
 import React from "react";
@@ -11,6 +11,11 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import type { Cache } from "cache-manager";
 import { Decimal } from "@prisma/client/runtime/library";
 import { ConfigService } from "@nestjs/config";
+import { CryptoService } from "@library/crypto/crypto.service";
+import { StorageService } from "@library/storage/storage.service";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import { ProductSettings } from "@library/dto/product.dto";
 
 
 @Injectable()
@@ -19,7 +24,10 @@ export class WorkspaceService {
         private prisma: PrismaService,
         private nodemailerService: NodemailerService,
         private configService: ConfigService,
-        @Inject(CACHE_MANAGER) private cacheManager: Cache
+        private readonly crypto: CryptoService,
+        private readonly storage: StorageService,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache,
+        @InjectQueue("queue") private readonly serviceQueue: Queue
     ) { }
 
     async validateRoleWorkspace(workspaceId: string, userId: string) {
@@ -59,6 +67,20 @@ export class WorkspaceService {
         if (!findUser) {
             throw new ForbiddenException("user not found");
         }
+        const [modelChat, modelEmebd] = await this.prisma.$transaction([
+            this.prisma.aIModel.findFirst({
+                where: { isChat: true, isActive: true },
+                orderBy: {
+                    inputPricePer1M: "asc"
+                }
+            }),
+            this.prisma.aIModel.findFirst({
+                where: { isEmbedding: true, isActive: true },
+                orderBy: {
+                    inputPricePer1M: "asc"
+                }
+            })
+        ]);
         const newWorkspace = await this.prisma.workspace.create({
             data: {
                 name: data.name,
@@ -69,6 +91,8 @@ export class WorkspaceService {
                         userId: user.id
                     }
                 },
+                activeEmbeddingModelId: modelEmebd?.id,
+                activeChatModelId: modelChat?.id,
                 notificationSettings: {
                     ai_escalation: true,
                     billing_alert: true,
@@ -92,13 +116,35 @@ export class WorkspaceService {
         if (findWorkspace.ownerId !== user.id) {
             throw new ForbiddenException("you not allowed to update workspace");
         }
-        const { workingHours, notificationSettings, ...restDto } = data;
+        const { workingHours, notificationSettings, productSettings, ...restDto } = data;
+        if (productSettings && productSettings.deliveryMethod && productSettings.deliveryMethod.rajaOngkirConfig
+            && productSettings.deliveryMethod.rajaOngkirConfig.apiKey
+        ) {
+            const encrypt = this.crypto.encrypt(productSettings.deliveryMethod.rajaOngkirConfig.apiKey);
+            productSettings.deliveryMethod.rajaOngkirConfig.apiKey = encrypt;
+        }
+        const newFilename = productSettings?.paymentMethod?.qris?.filename;
+
+        if (productSettings && newFilename) {
+            const existingProductSettings = findWorkspace.productSettings as unknown as ProductSettings;
+            const oldFilename = existingProductSettings?.paymentMethod?.qris?.filename;
+            if (oldFilename && oldFilename !== newFilename) {
+                await this.storage.cloudflareDeleteFile(oldFilename);
+                await this.serviceQueue.remove(`cleanup-${oldFilename}`);
+            }
+
+            const newJobId = `cleanup-${newFilename}`;
+            await this.serviceQueue.remove(newJobId);
+        }
         const updatedWorkspace = await this.prisma.workspace.update({
             where: { id },
             data: {
                 ...restDto,
                 ...(workingHours && { workingHours: workingHours as unknown as Prisma.InputJsonValue }),
                 ...(notificationSettings && { notificationSettings: notificationSettings as unknown as Prisma.InputJsonValue }),
+                ...(productSettings && {
+                    productSettings: productSettings as unknown as Prisma.InputJsonValue
+                })
             },
         });
         await this.cacheManager.del(findWorkspace.id);
@@ -355,6 +401,32 @@ export class WorkspaceService {
         return {
             message: "Successfully",
             data: newMember
+        }
+    }
+
+    async uploadFile(user: PayloadJWT, workspaceId: string, file: Express.Multer.File) {
+        await this.validateRoleWorkspace(workspaceId, user.id);
+        if (!file) {
+            throw new BadRequestException("File is required");
+        }
+        const filename = `${Date.now()}${file.originalname}`
+        const url = await this.storage.cloudflareUploadFile(file, filename);
+        await this.serviceQueue.add(
+            'file-cleanup', // Nama Job (Kategori)
+            {
+                key: filename,
+                url: url
+            },
+            {
+                delay: 1000 * 60 * 5, // 5 menit
+                jobId: `cleanup-${filename}`, // ID UNIK (Wajib untuk pembatalan!)
+                removeOnComplete: true,
+                removeOnFail: true // Disarankan agar Redis tidak penuh jika ada error
+            }
+        );
+        return {
+            url,
+            thumbnail: filename
         }
     }
 }

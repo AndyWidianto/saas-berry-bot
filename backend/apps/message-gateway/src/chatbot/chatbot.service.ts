@@ -160,10 +160,10 @@ export class ChatbotService {
         }
         // Proses RAG Knowledge & Prompt Engineering
         const { context: chunks, totalCostInput: totalCostInputEmbed } = await this.knowledgeService.getChunks(workspaceId, message, embeddingModel);
-        const systemInstruction = this.chattingService.buildSystemInstruction(workspace, chunks);
+        const systemInstruction = await this.chattingService.buildSystemInstruction(workspace, chunks, contact);
 
         //Eksekusi Model AI & Hitung Latensi
-        const { totalCostInput, totalCostOutput, text, spam, success } = await this.chattingService.handleResponseAI(chatModel, data.message, systemInstruction, messages);
+        const { totalCostInput, totalCostOutput, text, spam, success } = await this.chattingService.handleResponseAI(chatModel, data.message, systemInstruction, messages, senderId);
 
         if (!success) {
             if (workspace.plan !== "FREE") {

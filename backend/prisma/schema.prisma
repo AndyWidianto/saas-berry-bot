@@ -69,10 +69,13 @@ model Workspace {
   isAiActive          Boolean @default(true)
   rewrite             Boolean @default(false)
   workingHoursEnabled Boolean @default(false) // Toggle apakah aturan jam kerja dipakai/tidak
+  isProductActive     Boolean @default(false)
+  productSettings      Json?
+
   timezone            String  @default("Asia/Jakarta") // Mencegah perbedaan jam server & pengguna
   workingHours        Json?
 
-  plan        PlanType @default(FREE)
+  plan PlanType @default(FREE)
 
   notificationSettings Json?
 
@@ -271,8 +274,11 @@ model KnowledgeItem {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  knowledgeId String
-  knowledge   Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  knowledgeId String?
+  knowledge   Knowledge? @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
@@ -635,10 +641,92 @@ model Product {
   description String  @db.Text // Penjelasan detail produk/fasilitas
   benefits    String? @db.Text // Contoh: "Tanpa biaya uang gedung, Gratis SPP 8 semester, Uang saku bulanan"
   imageUrl    String? @map("image_url") // Link gambar pendukung
+  thumbnail   String?
+
+  price        Decimal @db.Decimal(12, 2)
+  isBestSeller Boolean @default(false)
+
+  knowledgeItems  KnowledgeItem[]
+
+  // Field pendukung standar
+  // sku   String? @unique
+  stock Int     @default(0)
 
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([workspaceId])
   @@map("products")
+}
+
+// Enum untuk Status Pesanan
+enum OrderStatus {
+  PENDING           // Menunggu Pembayaran
+  PAID              // Sudah Dibayar / Perlu Dikonfirmasi
+  PROCESSING        // Sedang Diproses / Dikemas
+  SHIPPED           // Dalam Pengiriman
+  COMPLETED         // Selesai
+  CANCELLED         // Dibatalkan
+}
+
+// Enum untuk Metode Pembayaran
+enum PaymentMethod {
+  QRIS
+  BANK_TRANSFER
+  COD
+}
+
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique // Kode Unik Transaksi (misal: ORD-20260911-001)
+  workspaceId     String        // ID Workspace / Toko
+  shortCode   String
+  // Status & Pembayaran
+  status          OrderStatus   @default(PENDING)
+  paymentMethod   PaymentMethod
+  paymentProofUrl String?       // URL Gambar Bukti Transfer/QRIS (Opsional)
+  paidAt          DateTime?     // Tanggal Dikonfirmasi Lunas
+  filename        String?
+
+  // Detail Biaya
+  subtotal        Decimal       @db.Decimal(12, 2)
+  shippingCost    Decimal       @default(0) @db.Decimal(12, 2)
+  discountTotal   Decimal       @default(0) @db.Decimal(12, 2)
+  grandTotal      Decimal       @db.Decimal(12, 2)
+
+  // Informasi Pelanggan (Disimpan langsung sebagai snapshot agar tidak berubah jika profil diubah)
+  notes           String?       @db.Text // Catatan dari pembeli
+
+  details         Json
+
+  // Relasi
+  items           OrderItem[]
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([workspaceId, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Snapshot Produk (Penting simpan nama/harga saat dibeli agar historis transaksi tidak berubah jika produk diupdate/dihapus)
+  productId   String?
+  productName String
+  price       Decimal  @db.Decimal(12, 2)
+  quantity    Int
+  subtotal    Decimal  @db.Decimal(12, 2)
+
+  // Media
+  imageUrl    String?  // Gambar Utama Produk
+  thumbnailUrl String? // Path/URL Thumbnail (Opsional)
+
+  createdAt   DateTime @default(now())
+
+  @@map("order_items")
 }

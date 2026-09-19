@@ -63,6 +63,10 @@ export class MessageMediaDto {
     imageUrl: string;
 
     @ApiProperty()
+    @IsNotEmpty({ message: "iamgeUrl is required" })
+    thumbnail: string;
+
+    @ApiProperty()
     @IsOptional()
     caption: string;
 }

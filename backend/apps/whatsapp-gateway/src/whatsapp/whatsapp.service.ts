@@ -4,6 +4,7 @@ import { CACHE_RAM_SOCK_SESSION } from "@library/constant/constant-cache";
 import { MessageMediaDto, MessageTextDto } from "@library/dto/message.dto";
 import axios from "axios";
 import { ConfigService } from "@nestjs/config";
+import { StorageService } from "@library/storage/storage.service";
 
 
 @Injectable()
@@ -12,6 +13,7 @@ export class WhatsappService implements OnModuleInit {
     private whatsappSecret = "";
     constructor(
         private configService: ConfigService,
+        private readonly storage: StorageService
     ) { }
 
     onModuleInit() {
@@ -36,7 +38,7 @@ export class WhatsappService implements OnModuleInit {
         }
     }
 
-    async sendMedia(secret: string, { to, imageUrl, caption, instanceName }: MessageMediaDto): Promise<void> {
+    async sendMedia(secret: string, { to, imageUrl, caption, instanceName, thumbnail }: MessageMediaDto): Promise<void> {
         if (secret !== this.whatsappSecret) {
             throw new BadRequestException("invalid secret.")
         };
@@ -46,9 +48,20 @@ export class WhatsappService implements OnModuleInit {
         const formattedPhone = to.includes('@s.whatsapp.net') ? to : `${to}@s.whatsapp.net`;
 
         try {
-            const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-            const buffer = Buffer.from(response.data, 'binary');
+            let downloadImage = imageUrl;
 
+            // Jika thumbnail berupa key/path Cloudflare R2, ambil Presigned URL-nya
+            if (thumbnail) {
+                downloadImage = await this.storage.cloudflareGetPresignedUrl(thumbnail);
+            }
+
+            // Download file gambar dari URL
+            const response = await axios.get<ArrayBuffer>(downloadImage, {
+                responseType: 'arraybuffer'
+            });
+
+            // Konversi ArrayBuffer langsung ke Node.js Buffer (tanpa argumen 'binary')
+            const buffer = Buffer.from(response.data);
             await sock.sendMessage(formattedPhone, {
                 image: buffer,
                 mimetype: 'image/jpeg',
@@ -74,6 +87,7 @@ export class WhatsappService implements OnModuleInit {
         }
     }
     async precenceUpdate(instanceName: string, status: WAPresence, to: string) {
+        if (!to) return;
         const sock = CACHE_RAM_SOCK_SESSION[instanceName];
         if (!sock) throw new NotFoundException(`Instance [${instanceName}] tidak aktif.`);
         const formattedPhone = to.includes('@s.whatsapp.net') ? to : `${to}@s.whatsapp.net`
