@@ -17,6 +17,8 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { APP_GUARD } from '@nestjs/core';
 import { StorageModule } from '@library/storage/storage.module';
 import { AgentModule } from '@library/agent/agent.module';
+import { CryptoModule } from '@library/crypto/crypto.module';
+import { BullmqModule } from './bullmq/bullmq.module';
 
 
 @Module({
@@ -29,6 +31,8 @@ import { AgentModule } from '@library/agent/agent.module';
     NodemailerModule,
     EmbeddingModule,
     StorageModule,
+    CryptoModule,
+    BullmqModule,
     ServeStaticModule.forRoot({
       rootPath: '/var/berry/images',
       serveRoot: '/images',          // Prefix URL publik

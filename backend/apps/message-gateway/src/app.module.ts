@@ -17,6 +17,9 @@ import { QueueChatbotModule } from './queue-chatbot/queue-chatbot.module';
 import { EmbeddingModule } from '@library/shared/embedding.module';
 import { AgentModule } from '@library/agent/agent.module';
 import { ChattingModule } from '@library/chatting/chatting.module';
+import { OrderModule } from '@library/order/order.module';
+import { CryptoModule } from '@library/crypto/crypto.module';
+import { StorageModule } from '@library/storage/storage.module';
 
 @Module({
   imports: [
@@ -28,7 +31,10 @@ import { ChattingModule } from '@library/chatting/chatting.module';
     EmbeddingModule,
     NodemailerModule,
     QueueChatbotModule,
+    OrderModule,
     ChattingModule,
+    CryptoModule,
+    StorageModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ".env"

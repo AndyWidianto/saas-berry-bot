@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { WorkspaceService } from "./workspace.service";
 import type { RequestAndPayload } from "../../../../lib/types";
 import { CreateMemberDto, CreateWorkspaceDto, UpdateWorkspaceDto } from "../../../../lib/dto/workspace.dto";
 import { AuthGuard } from "@nestjs/passport";
 import { SkipThrottle } from "@nestjs/throttler";
+import { FileInterceptor } from "@nestjs/platform-express";
 
 
 
@@ -67,6 +68,14 @@ export class WorkspaceController {
     async acceptWorkspace(@Req() req: RequestAndPayload, @Param() params: { id: string }) {
         const user = req.user;
         return await this.service.acceptWorkspace(params.id, user);
+    }
+
+    @Post(":id/upload")
+    @UseGuards(AuthGuard("jwt"))
+    @UseInterceptors(FileInterceptor("file"))
+    async upload(@Req() req: RequestAndPayload, @Param() params: { id: string }, @UploadedFile("file") file: Express.Multer.File) {
+        const user = req.user;
+        return await this.service.uploadFile(user, params.id, file);
     }
 }
 

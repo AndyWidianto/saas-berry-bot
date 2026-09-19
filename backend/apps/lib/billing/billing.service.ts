@@ -36,12 +36,12 @@ export class BillingService {
             totalUsedToken: tokens.length
         }
     }
-
     async totalCostInput(
         systemInstruction: string,
         prompt: string,
         model: AIModel,
-        messages: Message[] = []
+        messages: Message[] = [],
+        imagePayload?: { base64: string, mimeType: string }
     ) {
         let totalTokens: number = 0;
 
@@ -68,6 +68,10 @@ export class BillingService {
         }
 
         if (model.provider === "GOOGLE") {
+            if (imagePayload?.base64) {
+                const imageTokens = this.gemini.calculateImageTokensFromBase64(imagePayload.base64);
+                totalTokens += imageTokens;
+            }
             if (model.isEmbedding) {
                 totalTokens = await this.gemini.countTokens(prompt, model.modelCode);
             } else {

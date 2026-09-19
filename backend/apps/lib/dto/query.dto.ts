@@ -3,6 +3,13 @@ import { Type } from 'class-transformer';
 import { PlatformType } from '@prisma/client';
 
 
+
+export const StatusStock = {
+  OUT_OF_STOCK: "OUT_OF_STOCK",
+  IN_STOCK: "IN_STOCK",
+  LOW_STOCK: "LOW_STOCK"
+}
+
 export class GetQueryDto {
   @IsOptional()
   @IsString()
@@ -12,6 +19,10 @@ export class GetQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsEnum(StatusStock, { message: "Status stock tidak sesuai" })
+  stockStatus?: "OUT_OF_STOCK" | "IN_STOCK" | "LOW_STOCK";
 
   @IsOptional()
   @Type(() => Number)

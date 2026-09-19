@@ -7,7 +7,7 @@ import {
   Settings
 } from "lucide-react";
 import cn from "../../../components/ClassName";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import TabKnowledge from "./tabs/TabKnowledge";
 import TabAILog from "./tabs/TabAILog";
 import TabSettingChatbot from "./tabs/TabSettingChatbot";
@@ -23,6 +23,7 @@ export default function ChatbotPage() {
   const { workspace: workspaceId } = useParams();
   const searchParam = useSearchParams();
   const searchTab = searchParam.get("tab");
+  const router = useRouter();
 
   const tabs: { id: ChatbotTab; label: string; icon: React.ElementType }[] = [
     { id: "knowledge", label: "Knowledge Base", icon: BookOpen },
@@ -42,12 +43,15 @@ export default function ChatbotPage() {
     }
   }
 
+  const handleClickTab = (id: ChatbotTab) => {
+    setTab(id);
+    router.replace(`/dashboard/${workspaceId}/chatbot?tab=${id}`);
+  }
+
   useEffect(() => {
     if (!searchTab) return;
-    if (searchTab  === "settings") {
-      setTab("settings");
-    }
-  }, [searchTab])
+    setTab(searchTab as ChatbotTab);
+  }, [searchTab]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -58,7 +62,7 @@ export default function ChatbotPage() {
           {tabs.map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => handleClickTab(t.id)}
               className={cn(
                 "flex items-center gap-2 px-3 sm:px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0",
                 tab === t.id

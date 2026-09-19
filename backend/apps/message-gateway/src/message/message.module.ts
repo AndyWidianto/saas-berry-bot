@@ -16,6 +16,9 @@ import { GeminiService } from "@library/agent/gemini.service";
         }),
         BullModule.registerQueue({
             name: "notification-queue"
+        }),
+        BullModule.registerQueue({
+            name: "queue"
         })
     ]
 })

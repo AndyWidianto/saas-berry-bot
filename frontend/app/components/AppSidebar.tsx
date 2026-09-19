@@ -1,5 +1,5 @@
 "use client";
-import { BarChart3, Bot, CreditCard, InboxIcon, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Puzzle, RadioIcon, SettingsIcon, Sparkles, UserCheck, Users, X } from "lucide-react";
+import { BarChart3, Bot, CreditCard, InboxIcon, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Puzzle, RadioIcon, SettingsIcon, ShoppingBag, Sparkles, UserCheck, Users, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar, AvatarFallback, AvatarImage } from "./Avatar";
 import cn from "./ClassName";
@@ -47,6 +47,7 @@ export default function AppSidebar({ page, setPage, collapsed, setCollapsed, log
     //{ id: `/dashboard/${workspace}/inbox`, label: "Inbox", icon: InboxIcon, badge: 7 },
     { id: `/dashboard/${workspace}/chatbot`, label: "AI Chatbot", icon: Bot },
     //{ id: `/dashboard/${workspace}/broadcast`, label: "Broadcast", icon: RadioIcon },
+    { id: `/dashboard/${workspace}/products`, label: "Products", icon: ShoppingBag },
     { id: `/dashboard/${workspace}/contacts`, label: "Contacts", icon: Users },
     //{ id: `/dashboard/${workspace}/analytics`, label: "Analytics", icon: BarChart3 },
     { id: `/dashboard/${workspace}/integrations`, label: "Integrations", icon: Puzzle },

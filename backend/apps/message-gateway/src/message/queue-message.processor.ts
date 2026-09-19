@@ -2,30 +2,40 @@ import { PrismaService } from "@library/prisma/prisma.service";
 import { InjectQueue, Processor, WorkerHost } from "@nestjs/bullmq";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Logger } from "@nestjs/common";
-import { WAMessage, WAMessageKey, WAPresence } from "@whiskeysockets/baileys";
+import { downloadContentFromMessage, WAMessage, WAMessageKey, WAPresence } from "@whiskeysockets/baileys";
 import { Job, Queue } from "bullmq";
 import type { Cache } from "cache-manager";
 import { KnowledgeChunk, WhatsappBayliesSetting, WorkspaceWithModels } from "@library/types";
 import { GeminiService } from "@library/agent/gemini.service";
 import { BillingService } from "@library/billing/billing.service";
 import { ChatbotService } from "../chatbot/chatbot.service";
-import { AIModel, CreditTransactionType, StatusIntegration, WorkspaceBalance } from "@prisma/client";
-import { MessageTextDto } from "@library/dto/message.dto";
+import { AIModel, Contact, CreditTransactionType, StatusIntegration, WorkspaceBalance } from "@prisma/client";
+import { MessageMediaDto, MessageTextDto } from "@library/dto/message.dto";
 import { ChattingService } from "@library/chatting/chatting.service";
+import { OrderService } from "@library/order/order.service";
+import { OrderCache } from "@library/dto/order.dto";
+import { StorageService } from "@library/storage/storage.service";
+import { v4 as uuid } from "uuid";
 
+
+export interface UsedToken {
+    totalCost: number;
+    totalUsedToken: number;
+}
 
 @Processor("message-queue")
 export class MessageProcessor extends WorkerHost {
     private readonly logger = new Logger();
     constructor(
         private prisma: PrismaService,
-        private gemini: GeminiService,
         private billingService: BillingService,
-        private chatbotService: ChatbotService,
         private chattingService: ChattingService,
+        private orderService: OrderService,
+        private readonly storage: StorageService,
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
         @InjectQueue("whatsapp-outgoing-queue") private messageQueue: Queue,
-        @InjectQueue("notification-queue") private notifQueue: Queue
+        @InjectQueue("notification-queue") private notifQueue: Queue,
+        @InjectQueue("queue") private serviceQueue: Queue
     ) {
         super();
     }
@@ -114,6 +124,21 @@ export class MessageProcessor extends WorkerHost {
         await this.notifQueue.add("notif-model-error", { workspaceId, model: chatModel, ownerId });
     }
 
+    private async createMessage(workspaceId: string, message: string, remote: string, contact: Contact, fromMe: boolean) {
+        return await this.prisma.message.create({
+            data: {
+                content: message,
+                platform: "WHATSAPP_BAYLIES",
+                workspaceId,
+                status: "read",
+                type: "text",
+                fromMe: fromMe,
+                senderId: remote,
+                contactId: contact.id,
+            },
+        });
+    }
+
     private async triggerWhatsAppEvents(instanceName?: string, remote?: string, data?: any, settings?: any, status: WAPresence = "composing") {
         if (!settings) return;
 
@@ -162,10 +187,21 @@ export class MessageProcessor extends WorkerHost {
         message = message.trim();
         const remote = data.key.remoteJidAlt;
         const pushName = data.pushName;
+        const imageMessage = msg?.imageMessage;
 
         if (!remote) return;
-
         try {
+            // status finish 
+            let finish = false;
+            let textOutput = "";
+            let chunks: KnowledgeChunk[] = [];
+            let systemInstruction = "";
+            let totalCostReWrite: UsedToken = { totalCost: 0, totalUsedToken: 0 };
+            let totalCostEmbedding: UsedToken = { totalCost: 0, totalUsedToken: 0 };
+            let totalCostChatting: UsedToken = { totalCost: 0, totalUsedToken: 0 };
+            let totalCostOutputChat: UsedToken = { totalCost: 0, totalUsedToken: 0 };
+            let prompt = "";
+
             // Guard Clause: Validasi Workspace & Jam Kerja
             const workspace = await this.chattingService.getWorkspace(workspaceId, remote);
             if (!workspace || !this.checkWorkingHour(workspace)) return;
@@ -192,72 +228,126 @@ export class MessageProcessor extends WorkerHost {
 
             // Database Operations: Contact & User Message
             const contact = await this.upsertContact(workspaceId, remote, message, pushName ?? "");
-            const newMessage = await this.prisma.message.create({
-                data: {
-                    content: message,
-                    platform: "WHATSAPP_BAYLIES",
-                    workspaceId,
-                    status: "read",
-                    type: "text",
-                    senderId: remote,
-                    contactId: contact.id,
-                },
-            });
+            const newMessage = await this.createMessage(workspaceId, message, remote, contact, false);
 
             await this.notifQueue.add("notif-message", newMessage, { removeOnComplete: true });
 
             // WhatsApp Event Triggers (Auto Read & Presence Composing)
             await this.triggerWhatsAppEvents(instanceName, remote, data, settings, "composing");
 
-            // Query Rewrite (Opsional)
-            let totalCostReWrite = { totalCost: 0, totalUsedToken: 0 };
-            let queryRewrite = "";
+            const sessionKey = `session:${remote}`;
+            if (imageMessage && workspace.isProductActive) {
+                const getStatusPayment = await this.cacheManager.get<OrderCache>(sessionKey);
+                if (getStatusPayment?.status === "WAITING_FOR_PAYMENT") {
+                    const stream = await downloadContentFromMessage(imageMessage, 'image');
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) {
+                        buffer = Buffer.concat([buffer, chunk]);
+                    }
 
-            if (workspace.rewrite) {
-                const result = await this.chattingService.reWrite(workspace, chatModel, message, messages);
-                if (!result.success) {
-                    await this.notifQueue.add("notif-model-error", {
-                        workspaceId,
-                        model: chatModel,
-                        ownerId: workspace.ownerId,
-                    });
+                    // B. Ubah Buffer ke format Base64 untuk Gemini
+                    const imageBase64 = buffer.toString('base64');
+                    const mimeType = imageMessage.mimetype || 'image/jpeg';
+                    const prompt = `
+                    Analisis gambar bukti transfer/QRIS ini dan kembalikan HANYA JSON murni tanpa markdown dengan struktur:
+                    {
+                        "isValidReceipt": boolean, // true jika ini bukti transfer/QRIS/E-Wallet asli
+                        "amount": number, // total nominal transfer (angka saja)
+                        "paymentMethod": string, // misal: "QRIS", "BCA", "GOPAY", "OVO", dll.
+                        "status": "SUCCESS" | "PENDING" | "FAILED"
+                    }
+                    `;
+                    const response = await this.handlePayment(chatModel, message, prompt, imageBase64, mimeType, getStatusPayment, remote);
+                    totalCostOutputChat = response.totalCostOutput;
+                    totalCostChatting = response.totalCostInput;
+                    textOutput = response.text;
+                    finish = true;
+                }
+            }
+
+            if (!finish) {
+                let queryRewrite = "";
+
+                if (workspace.rewrite) {
+                    const result = await this.chattingService.reWrite(workspace, chatModel, message, messages);
+                    if (!result.success) {
+                        await this.notifQueue.add("notif-model-error", {
+                            workspaceId,
+                            model: chatModel,
+                            ownerId: workspace.ownerId,
+                        });
+                        return;
+                    }
+                    queryRewrite = result.text;
+                    totalCostReWrite = { totalCost: result.totalCost, totalUsedToken: result.totalToken };
+                }
+
+                // RAG Chunks & Prompt Construction
+                chunks = await this.chattingService.getChunks(workspaceId, message, embeddingModel);
+                systemInstruction = await this.chattingService.buildSystemInstruction(workspace, chunks, contact);
+
+                prompt = workspace.rewrite
+                    ? `MAKSUD PERTANYAAN TERSEMBUNYI (Paham Konteks): \n "${queryRewrite}" \n PERTANYAAN ASLI PENGGUNA (Jawab sesuai gaya/bahasa pengguna ini): \n "${message}"`.trim()
+                    : message;
+
+                totalCostEmbedding = await this.billingService.totalCostInput(systemInstruction, prompt, embeddingModel);
+
+                // Panggil Model AI Chat
+                const { success: ResponseSuccess, text: ResponseText, totalCostInput, totalCostOutput } = await this.chattingService.handleResponseAI(chatModel, message, systemInstruction, messages, remote);
+                totalCostChatting = totalCostInput;
+                totalCostOutputChat = totalCostOutput;
+
+                // Handle Kegagalan AI
+                if (!ResponseSuccess) {
+                    console.error("AI Generation Error: ", ResponseText);
+                    await this.handleFailedAiResponse(workspaceId, workspaceBalance.id, workspace.ownerId, chatModel, totalCostEmbedding);
                     return;
                 }
-                queryRewrite = result.text;
-                totalCostReWrite = { totalCost: result.totalCost, totalUsedToken: result.totalToken };
+                textOutput = ResponseText;
             }
 
-            // RAG Chunks & Prompt Construction
-            const chunks = await this.chattingService.getChunks(workspaceId, message, embeddingModel);
-            const systemInstruction = this.chattingService.buildSystemInstruction(workspace, chunks);
-
-            const prompt = workspace.rewrite
-                ? `MAKSUD PERTANYAAN TERSEMBUNYI (Paham Konteks): \n "${queryRewrite}" \n PERTANYAAN ASLI PENGGUNA (Jawab sesuai gaya/bahasa pengguna ini): \n "${message}"`.trim()
-                : message;
-
-            const totalCostEmbedding = await this.billingService.totalCostInput(systemInstruction, prompt, embeddingModel);
-
-            // Panggil Model AI Chat
-            const responseAI = await this.chattingService.handleResponseAI(chatModel, message, systemInstruction, messages);
-
-            // Handle Kegagalan AI
-            if (!responseAI.success) {
-                console.error("AI Generation Error: ", responseAI);
-                await this.handleFailedAiResponse(workspaceId, workspaceBalance.id, workspace.ownerId, chatModel, totalCostEmbedding);
-                return;
-            }
-
+            // membersihkan object
+            const cleanObject = await this.chattingService.cleanResponseAI(workspace, textOutput);
             // Kirim Pesan Balasan ke WhatsApp
-            const cleanText = this.markdownToWA(responseAI.text);
-            await this.messageQueue.add(
-                "send-message",
-                { instanceName, to: remote || "", text: cleanText } as MessageTextDto,
-                { removeOnComplete: true, attempts: 3 },
-            );
+            const cleanText = this.markdownToWA(cleanObject.text);
+            if (cleanObject.type === "text") {
+                await this.messageQueue.add(
+                    "send-message",
+                    { instanceName, to: remote || "", text: cleanText } as MessageTextDto,
+                    { removeOnComplete: true, attempts: 3 },
+                );
+            }
+            if (cleanObject.type === "image") {
+                await this.messageQueue.add(
+                    "send-media",
+                    {
+                        instanceName,
+                        to: remote || "",
+                        caption: cleanText,
+                        imageUrl: cleanObject.image,
+                        thumbnail: cleanObject.thumbnail
+                    } as MessageMediaDto,
+                    { removeOnComplete: true, attempts: 3 },
+                );
+            }
 
-            // Kalkulasi Tagihan & Waktu Respon
-            const totalCostChatting = await this.billingService.totalCostInput(systemInstruction, prompt, chatModel, messages);
-            const totalCostOutputChat = await this.billingService.totalCostOutput(cleanText, chatModel);
+            if (workspace.isProductActive && cleanObject.order) {
+                const orderId = uuid();
+                await this.serviceQueue.add("create-order", {
+                    orderId,
+                    workspaceId,
+                    userId: workspace.ownerId,
+                    data: cleanObject.order
+                }, {
+                    removeOnComplete: true,
+                });
+                await this.cacheManager.set(sessionKey, {
+                    orderId: orderId,
+                    status: "WAITING_FOR_PAYMENT",
+                    total: cleanObject.order.total,
+                    detail: cleanObject.order.detail,
+                } as OrderCache, 1000 * 60 * 60 * 3);
+            }
 
             const totalCost = totalCostChatting.totalCost + totalCostOutputChat.totalCost + totalCostReWrite.totalCost + totalCostEmbedding.totalCost;
             const responseTime = Date.now() - startTime;
@@ -268,12 +358,13 @@ export class MessageProcessor extends WorkerHost {
                 this.prisma.message.create({
                     data: {
                         contactId: contact.id,
-                        content: responseAI.text,
+                        content: textOutput,
                         fromMe: true,
                         senderId: remote || "",
                         platform: "WHATSAPP_BAYLIES",
                         status: "sent",
-                        type: "text",
+                        type: cleanObject.type,
+                        mediaUrl: cleanObject.image,
                         senderName: pushName,
                         workspaceId,
                     },
@@ -281,15 +372,16 @@ export class MessageProcessor extends WorkerHost {
                 this.prisma.contact.update({
                     where: { id: contact.id },
                     data: {
-                        lastMessage: responseAI.text,
+                        lastMessage: textOutput,
                         lastActiveAt: new Date(),
                         lastMessageAt: new Date(),
                         unreadCount: { decrement: 1 },
+                        metadata: {...cleanObject.order?.detail, delivery: cleanObject.order?.delivery, paymentMethod: cleanObject.order?.payment_method }
                     },
                 }),
                 this.prisma.aiLog.create({
                     data: {
-                        answer: responseAI.text,
+                        answer: textOutput,
                         confidence: confidenceScore,
                         question: message,
                         workspaceId,
@@ -311,13 +403,13 @@ export class MessageProcessor extends WorkerHost {
                                     workspaceId,
                                 }]
                                 : []),
-                            {
+                            ...(totalCostEmbedding.totalUsedToken > 0 ? [{
                                 amount: -totalCostEmbedding.totalCost,
                                 tokensUsed: totalCostEmbedding.totalUsedToken,
                                 description: `Penggunaan RAG Embedding (${totalCostEmbedding.totalUsedToken} token)`,
                                 type: CreditTransactionType.USAGE_RAG,
                                 workspaceId,
-                            },
+                            }] : []),
                             {
                                 amount: -(totalCostChatting.totalCost + totalCostOutputChat.totalCost),
                                 tokensUsed: totalCostChatting.totalUsedToken + totalCostOutputChat.totalUsedToken,
@@ -415,6 +507,36 @@ export class MessageProcessor extends WorkerHost {
             // Fallback jika terjadi error parsing
             return true;
         }
+    }
+
+    async handlePayment(
+        model: AIModel,
+        message: string,
+        systemInstruction: string,
+        base64: string,
+        mimeType: string,
+        order: OrderCache,
+        remote: string,
+    ) {
+        const response = await this.chattingService.handleResponseAI(model, message, systemInstruction, [], remote, { base64, mimeType, order });
+        if (response.isValidReceipt) {
+            const key = uuid();
+            const upload = await this.storage.uploadBase64File(base64, `${key}.png`);
+            await Promise.all([
+                this.prisma.order.update({
+                    where: { id: order.orderId },
+                    data: {
+                        paymentProofUrl: upload,
+                        filename: key,
+                        paidAt: new Date(),
+                        status: "PAID",
+                    }
+                }),
+                this.cacheManager.del(`session:${remote}`)
+            ])
+
+        }
+        return response;
     }
 
     private async checkAndNotifyBalance(

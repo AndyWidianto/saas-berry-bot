@@ -182,7 +182,7 @@ export default function useConverstation({ workspaceId }: { workspaceId?: string
             if (fileTemporary) {
                 const fileToSend = new FormData();
                 fileToSend.append("file", fileTemporary);
-                const res = await AxiosPrivate.post(`/${workspaceId}/messages/upload`, fileToSend, {
+                const res = await AxiosPrivate.post(`workspaces/${workspaceId}/upload`, fileToSend, {
                     headers: {
                         "Content-Type": "multipart/form-data"
                     }
@@ -191,7 +191,7 @@ export default function useConverstation({ workspaceId }: { workspaceId?: string
             }
             if (responseUpload) {
                 messageToSend.mediaUrl = responseUpload?.url;
-                messageToSend.thumbnail = responseUpload.filename;
+                messageToSend.thumbnail = responseUpload.thumbnail;
             }
 
             const res = await AxiosPrivate.post(`/${workspaceId}/messages/sendMessage`, messageToSend);

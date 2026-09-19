@@ -8,6 +8,7 @@ export * from "./contact";
 export * from "./working-hour";
 export * from "./notification";
 export * from "./messages";
+export * from "./products";
 
 
 export interface ResponseApi {
@@ -15,9 +16,4 @@ export interface ResponseApi {
     totalPage: number;
     nextId: string;
     total: number;
-}
-
-export interface ResponseUpload {
-    filename: string;
-    url: string;
 }

@@ -26,7 +26,7 @@ export class OpenaiService implements OnModuleInit {
             .filter((m) => m.content && m.content.trim() !== "")
             .map((m) => ({
                 role: m.fromMe ? ("assistant" as const) : ("user" as const),
-                content: m.content.trim(),
+                content: `${m.mediaUrl ? `Url: ${m.mediaUrl}` : ''} \n${m.content}`.trim(),
             }));
 
         const sanitized: ChatCompletionMessageParam[] = [];

@@ -11,14 +11,14 @@ async function bootstrap() {
   ];
   const app = await NestFactory.create(AppModule);
   const config = new DocumentBuilder()
-    .setTitle("Documentasi chatbot private")
-    .setDescription('Dokumentasi API untuk aplikasi saya')
+    .setTitle("Documentasi")
+    .setDescription('Dokumentasi API')
     .setVersion('1.0')
     .addTag('users')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("api", app, document);
+  SwaggerModule.setup("api/documents", app, document);
   app.use(CookieParser())
   app.enableCors({
     origin: whitelist,

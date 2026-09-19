@@ -11,6 +11,7 @@ import { StatusIntegration } from "@prisma/client";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { WhatsappBayliesSetting } from "@library/types";
+import NodeCache from 'node-cache';
 
 
 
@@ -76,6 +77,9 @@ export class WhatsappGatewayService implements OnModuleInit {
         const { state, saveCreds } = await useMultiFileAuthState(authFolder);
         const { version } = await fetchLatestBaileysVersion();
 
+        const msgRetryCounterCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+        const groupCache = new NodeCache({ stdTTL: 5 * 60, checkperiod: 30 });
+
         const sock = makeWASocket({
             pushName: "Berry Sweet",
             browser: ["BerrySweet", "Chrome", "1.0.0"],
@@ -89,6 +93,12 @@ export class WhatsappGatewayService implements OnModuleInit {
             defaultQueryTimeoutMs: 0,
             logger: pino({ level: 'silent' }),
             shouldSyncHistoryMessage: () => false,
+
+            // OPTIMASI RAM TAMBAHAN:
+            msgRetryCounterCache, // Mencegah retries menumpuk di RAM
+            cachedGroupMetadata: async (jid) => groupCache.get(jid), // Cache metadata grup dengan TTL
+            syncFullHistory: false, // Memastikan tidak menarik history chat lama
+            generateHighQualityLinkPreview: false, // Matikan render preview link berat
         });
         sock.ev.on('creds.update', saveCreds);
 

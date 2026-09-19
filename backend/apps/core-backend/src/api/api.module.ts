@@ -15,6 +15,8 @@ import { DashboardModule } from "./dashboard/dashboard.module";
 import { ContactModule } from "./contact/contact.module";
 import { NotificationModule } from "./notification/notification.module";
 import { AdminModule } from "./admin/admin.module";
+import { ProductModule } from "./product/product.module";
+import { OrderModule } from "./order/order.module";
 
 
 
@@ -35,7 +37,9 @@ import { AdminModule } from "./admin/admin.module";
         DashboardModule,
         ContactModule,
         NotificationModule,
-        AdminModule
+        AdminModule,
+        ProductModule,
+        OrderModule
     ]
 })
 export class ApiModule {}

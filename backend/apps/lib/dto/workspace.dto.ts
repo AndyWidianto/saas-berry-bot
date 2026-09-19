@@ -1,7 +1,8 @@
 import { Days } from "@library/types";
 import { RoleWorkspaceMember } from "@prisma/client";
 import { Transform, Type } from "class-transformer";
-import { IsBoolean, IsEmail, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsBoolean, IsEmail, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
+import { ProductSettings } from "./product.dto";
 
 
 export class CreateWorkspaceDto {
@@ -88,13 +89,17 @@ export class UpdateWorkspaceDto {
   greetingText?: string;
 
   @IsOptional()
+  @IsBoolean()
+  isProductActive?: boolean;
+
+  @IsOptional()
   @IsString()
-  // @IsUUID() // Buka komentar jika ID menggunakan UUID/CUID
+  @IsUUID() // Buka komentar jika ID menggunakan UUID/CUID
   activeChatModelId?: string;
 
   @IsOptional()
   @IsString()
-  // @IsUUID() // Buka komentar jika ID menggunakan UUID/CUID
+  @IsUUID() // Buka komentar jika ID menggunakan UUID/CUID
   activeEmbeddingModelId?: string;
 
   @IsOptional()
@@ -105,6 +110,11 @@ export class UpdateWorkspaceDto {
   @IsOptional()
   @IsString()
   timezone?: string; // e.g. "Asia/Jakarta"
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ProductSettings)
+  productSettings: ProductSettings;
 
   @IsOptional()
   @IsObject()
