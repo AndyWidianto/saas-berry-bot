@@ -181,26 +181,27 @@ export default function BillingPage() {
             const res = await AxiosPrivate.post(`/${workspaceId}/topup`, { nominal });
             const result = res.data;
 
-            if (typeof window !== "undefined" && window.snap) {
-                window.snap.pay(result.token, {
-                    onSuccess: function () {
-                        toast.success("Pembayaran berhasil!");
-                        fetchBalance(null);
-                        fetchInvoices(1, null);
-                    },
-                    onPending: function () {
-                        toast.info("Menunggu pembayaran diselesaikan.");
-                        fetchInvoices(1, null);
-                    },
-                    onError: function () {
-                        toast.error("Pembayaran gagal!");
-                    },
-                    onClose: function () {
-                        toast.warning("Popup pembayaran ditutup.");
-                    }
-                });
-            }
+            // if (typeof window !== "undefined" && window.snap) {
+            //     window.snap.pay(result.token, {
+            //         onSuccess: function () {
+            //             toast.success("Pembayaran berhasil!");
+            //             fetchBalance(null);
+            //             fetchInvoices(1, null);
+            //         },
+            //         onPending: function () {
+            //             toast.info("Menunggu pembayaran diselesaikan.");
+            //             fetchInvoices(1, null);
+            //         },
+            //         onError: function () {
+            //             toast.error("Pembayaran gagal!");
+            //         },
+            //         onClose: function () {
+            //             toast.warning("Popup pembayaran ditutup.");
+            //         }
+            //     });
+            // }
             setInvoices(prev => [result.data, ...prev]);
+            window.open(result.redirect, '_blank');
         } catch (err) {
             console.error("Checkout error: ", err);
             if (axios.isAxiosError(err)) {

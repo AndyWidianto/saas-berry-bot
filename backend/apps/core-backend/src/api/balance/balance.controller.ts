@@ -1,17 +1,17 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { BalanceService } from "./balance.service";
 import { AuthGuard } from "@nestjs/passport";
 import type { RequestAndPayload } from "@library/types";
 import { SkipThrottle } from "@nestjs/throttler";
 import { TopupDto } from "@library/dto/balance.dto";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 
 
 
 
 @Controller("api")
 export class BalanceController {
-    constructor(private service: BalanceService) {}
+    constructor(private service: BalanceService) { }
 
     @Post(":workspaceId/topup")
     @UseGuards(AuthGuard("jwt"))
@@ -20,11 +20,15 @@ export class BalanceController {
     }
 
     @Post("midtrans-callback")
-    async midtransCallback(@Body() body: any, @Query("secret") secret?: string) {
-        return await this.service.midtransCallback(body, secret || "");
+    async midtransCallback(@Req() res: Response, @Body() body: any, @Query("secret") secret?: string) {
+        res.status(200).json({ message: "ok" });
+
+        this.service.midtransCallback(body, secret || "").catch((err) => {
+            console.error("Error processing Midtrans callback:", err);
+        });
     }
 
-    
+
     @SkipThrottle()
     @Get("/:workspaceId/balance")
     @UseGuards(AuthGuard("jwt"))
