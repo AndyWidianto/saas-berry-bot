@@ -10,6 +10,7 @@ import { Keyv } from 'keyv';
 import { createClient } from "redis";
 import { BullModule } from '@nestjs/bullmq';
 import { StorageModule } from '@library/storage/storage.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -58,7 +59,13 @@ import { StorageModule } from '@library/storage/storage.module';
       }),
       inject: [ConfigService],
     }),
-    WhatsappModule
+    WhatsappModule,
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // Waktu (dalam milidetik). 60000ms = 1 menit
+        limit: 10,  // Maksimal 10 request per window (ttl)
+      },
+    ]),
   ],
   controllers: [AppController],
   providers: [AppService],

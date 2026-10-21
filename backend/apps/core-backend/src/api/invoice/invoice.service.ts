@@ -3,6 +3,7 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { PayloadJWT } from "@library/types";
+import { GetQueryDto } from "@library/dto/query.dto";
 
 
 
@@ -14,13 +15,14 @@ export class InvoiceService {
         private prisma: PrismaService
     ) { }
 
-    async getAll(user: PayloadJWT, workspaceId: string, lastId?: string, limitStr?: string) {
+    async getAll(user: PayloadJWT, workspaceId: string, { cursor, limit }: GetQueryDto) {
         const workspace = await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
-        const limit = limitStr ? Number(limitStr) : 10;
+
+        limit = limit ? limit : 10;
         const query: Prisma.CreditLedgerFindManyArgs = {
             where: { workspaceId },
-            ...lastId ? {
-                cursor: { id: lastId },
+            ...cursor ? {
+                cursor: { id: cursor },
                 skip: 1
             } : {},
             take: limit,
@@ -43,17 +45,17 @@ export class InvoiceService {
         }
     }
 
-    async getAllInvoices(user: PayloadJWT, workspaceId: string, lastId?: string, limitStr?: string) {
+    async getAllInvoices(user: PayloadJWT, workspaceId: string, { limit, cursor }: GetQueryDto) {
         await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
-        const limit = limitStr ? Number(limitStr) : 10;
+        limit = limit ? Number(limit) : 10;
         const query: Prisma.InvoiceFindManyArgs = {
             where: {
                 workspaceId, status: {
                     in: ["CANCELLED", "PENDING", "REFUNDED"]
                 }
             },
-            ...lastId ? {
-                cursor: { id: lastId },
+            ...cursor ? {
+                cursor: { id: cursor },
                 skip: 1
             } : {},
             take: limit,
