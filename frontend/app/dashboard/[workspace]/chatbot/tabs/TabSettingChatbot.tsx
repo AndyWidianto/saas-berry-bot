@@ -1,36 +1,23 @@
 import { Badge } from "@/app/components/Bagde";
-import { Btn } from "@/app/components/Button";
 import { Card } from "@/app/components/Cards";
 import { PageHeader } from "@/app/components/PageHeader";
 import useAxios from "@/lib/axios-service";
-import { useAIModelStore } from "@/lib/store/aiModelStore";
 import { useWorkspaceStore } from "@/lib/store/workspaceStore";
 import { AIModel, Workspace } from "@/lib/types";
 import { Bot, CheckCircle2, Cpu, Database, Info, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useGetModels } from "../features/hooks/useModel";
 
 
 
 export default function TabSettingChatbot({ workspaceId }: { workspaceId: string }) {
     const { AxiosPrivate } = useAxios();
     const { workspace, setWorkspace } = useWorkspaceStore();
-    const { aimodels, setAIModels } = useAIModelStore();
 
-    const [loading, setLoading] = useState<boolean>(false);
     const [updatingType, setUpdatingType] = useState<"chat" | "embedding" | null>(null);
 
-    const fetchModels = async () => {
-        setLoading(true);
-        try {
-            const res = await AxiosPrivate.get(`/aimodels/active`);
-            const result = res.data;
-            setAIModels((result.data as AIModel[]) || []);
-        } catch (err) {
-            console.error("Fetch error: ", err);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { data: resultAiModels, isLoading: loading } = useGetModels();
+    const aimodels = resultAiModels?.data || [];
 
     const handleChangeModelSelection = async (modelId: string, type: "chat" | "embedding") => {
         if (!workspace) return;
@@ -55,11 +42,6 @@ export default function TabSettingChatbot({ workspaceId }: { workspaceId: string
         }
     };
 
-    useEffect(() => {
-        if (!workspaceId) return;
-        fetchModels();
-    }, [workspaceId]);
-
     return (
         <div className="flex-1 overflow-auto p-4 sm:p-6 bg-background">
             <div className="max-w-6xl mx-auto space-y-8">
@@ -70,7 +52,7 @@ export default function TabSettingChatbot({ workspaceId }: { workspaceId: string
                         title="AI Engines & Settings"
                         subtitle="Konfigurasikan pilihan model, mesin respons utama, dan model vector embedding untuk RAG workspace Anda."
                     />
-                    <Btn
+                    {/* <Btn
                         variant="outline"
                         size="sm"
                         onClick={fetchModels}
@@ -79,10 +61,9 @@ export default function TabSettingChatbot({ workspaceId }: { workspaceId: string
                     >
                         <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
                         Reload Models
-                    </Btn>
+                    </Btn> */}
                 </div>
 
-                {/* SECTION 1: PRIMARY ENGINES SELECTION CARDS */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {/* Active Chat Engine Card */}
                     <div className="bg-card border border-border/80 rounded-xl p-5 shadow-sm space-y-4 hover:border-primary/30 transition-all">

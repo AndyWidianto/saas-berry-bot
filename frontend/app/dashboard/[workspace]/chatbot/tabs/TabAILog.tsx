@@ -3,13 +3,14 @@ import { Btn } from "@/app/components/Button";
 import { Card } from "@/app/components/Cards";
 import { PageHeader } from "@/app/components/PageHeader";
 import useAxios from "@/lib/axios-service";
-import { AILogs, ResponseApi } from "@/lib/types";
+import { AILogs, Filter } from "@/lib/types";
 import axios from "axios";
 import { ArrowUpRight, Bot, ChevronLeft, ChevronRight, Clock, Download, Loader2, RefreshCw, Search, Zap } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useGetAILogs } from "../features/hooks/useAILog";
 
 
 
@@ -17,8 +18,6 @@ export default function TabAILog({ workspaceId }: { workspaceId: string }) {
   const { AxiosPrivate } = useAxios();
 
   // States Data & Filter
-  const [ailogs, setAilogs] = useState<AILogs[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
   const [selectedLog, setSelectedLog] = useState<AILogs | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [loadingExport, setLoadingExport] = useState(false);
@@ -27,42 +26,45 @@ export default function TabAILog({ workspaceId }: { workspaceId: string }) {
   const [page, setPage] = useState<number>(1);
   const [totalPage, setTotalPage] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(0);
-  const [cursorId, setCursorId] = useState<string | null>();
+  const [cursorId, setCursorId] = useState<string | null>(null); // Inisialisasi default null yang jelas
   const [limit] = useState<number>(10);
 
-  const fetchAiLogs = async () => {
-    setLoading(true);
-    try {
-      const res = await AxiosPrivate.get(`/${workspaceId}/aimodels/ailogs`, {
-        params: {
-          limit: limit,
-          cursor: cursorId
-        }
-      });
-      const result: ResponseApi = res.data;
-      setCursorId(result.nextId);
-      setAilogs(result.data || []);
-      setTotalPage(result.totalPage || 1);
-      setTotalItems(result.total || (result.data ? result.data.length : 0));
-    } catch (err) {
-      console.error("Fetch error: ", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [history, setHistory] = useState([{
+    page: 1,
+    cursor: ""
+  }])
 
+
+  const filter = useMemo((): Filter => {
+    return {
+      cursor: cursorId || "",
+      limit: limit,
+      // search: searchQuery
+    };
+  }, [cursorId, limit, searchQuery]);
+
+
+  const { data: resultAiLogs, isLoading: loading } = useGetAILogs(workspaceId, filter);
+
+  const ailogs = resultAiLogs?.data ?? [];
 
   const exportToCSV = async () => {
     setLoadingExport(true);
     try {
       const res = await AxiosPrivate.get(`/${workspaceId}/aimodels/ailogs/export`);
       const result = res.data;
-      const ailogs: AILogs[] = result.data;
-      const headers = Object.keys(ailogs[0]).join(',');
+      const ailogsData: AILogs[] = result.data;
 
-      const rows = ailogs.map(row =>
+      if (!ailogsData || ailogsData.length === 0) {
+        toast.error("Tidak ada data untuk diexport");
+        return;
+      }
+
+      const headers = Object.keys(ailogsData[0]).join(',');
+
+      const rows = ailogsData.map(row =>
         Object.values(row)
-          .map(value => `"${String(value).replace(/"/g, '""')}"`) // Bungkus string dengan double quote agar aman dari koma
+          .map(value => `"${String(value ?? "").replace(/"/g, '""')}"`)
           .join(',')
       );
 
@@ -92,14 +94,47 @@ export default function TabAILog({ workspaceId }: { workspaceId: string }) {
   };
 
   useEffect(() => {
-    fetchAiLogs();
-  }, [page, workspaceId]);
+    if (!resultAiLogs) return;
+
+    if (resultAiLogs.totalPage && resultAiLogs.totalPage !== totalPage) {
+      setTotalPage(resultAiLogs.totalPage);
+    }
+    const calculatedTotal = resultAiLogs.total || (resultAiLogs.data ? resultAiLogs.data.length : 0);
+    if (calculatedTotal !== totalItems) {
+      setTotalItems(calculatedTotal);
+    }
+  }, [resultAiLogs, totalPage, totalItems]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1); // Reset ke halaman pertama saat melakukan pencarian
-    fetchAiLogs();
+    setCursorId(null); // Reset cursor saat pencarian baru dilakukan
   };
+
+  const nextPage = () => {
+    if (!resultAiLogs) return;
+
+    const newPage = Math.min(totalPage, page + 1);
+
+    if (newPage === page) return;
+
+    setPage(newPage);
+
+    setHistory((prev) => [
+      ...prev,
+      {
+        page: newPage,
+        cursor: resultAiLogs.nextId,
+      },
+    ]);
+  };
+
+  useEffect(() => {
+    const existingHistory = history.find(h => h.page === page);
+    if (existingHistory) {
+      setCursorId(existingHistory.cursor);
+    }
+  }, [page, history])
 
   return (
     <div className="flex-1 overflow-auto p-4 sm:p-6 bg-background">
@@ -110,7 +145,7 @@ export default function TabAILog({ workspaceId }: { workspaceId: string }) {
           subtitle="Pantau respons AI, tingkat keyakinan (confidence score), latensi, dan pemicu eskalasi"
           actions={
             <div className="flex items-center gap-2">
-              <Btn
+              {/* <Btn
                 variant="outline"
                 size="sm"
                 onClick={fetchAiLogs}
@@ -118,7 +153,7 @@ export default function TabAILog({ workspaceId }: { workspaceId: string }) {
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                 Refresh
-              </Btn>
+              </Btn> */}
               <Btn variant="secondary" size="sm" onClick={exportToCSV}>
                 {loadingExport ? <>
                   <Loader2 className="animate-spin w-3.5 h-3.5" />
@@ -338,7 +373,7 @@ export default function TabAILog({ workspaceId }: { workspaceId: string }) {
               </div>
 
               <button
-                onClick={() => setPage((p) => Math.min(totalPage, p + 1))}
+                onClick={() => nextPage()}
                 disabled={page >= totalPage || loading}
                 className="p-1.5 rounded-lg border border-border hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
                 title="Next Page"

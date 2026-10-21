@@ -69,7 +69,7 @@ export default function SettingsPage() {
 
     if (workspaces.length <= 1) {
       toast.warning("Workspace tidak bisa dihapus karena minimal harus ada satu workspace.");
-      return; // WAJIB return agar proses eksekusi berhenti di sini
+      return;
     }
 
     setIsDeleting(true);

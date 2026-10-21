@@ -14,44 +14,6 @@ import useAxios from "@/lib/axios-service";
 import { useParams } from "next/navigation";
 
 
-
-interface TeamMember {
-    id: string; name: string; email: string; role: "owner" | "admin" | "supervisor" | "agent" | "viewer";
-    status: "online" | "offline" | "busy"; lastActive: string; initials: string;
-    conversations: number; color: string;
-}
-
-const channelData = [
-    { name: "WhatsApp", value: 48 }, { name: "Instagram", value: 24 },
-    { name: "Telegram", value: 14 }, { name: "Email", value: 14 },
-];
-
-const agentPerfData = [
-    { name: "Alex Chen", resolved: 124, csat: 4.8, avgTime: 2.1 },
-    { name: "Maya Patel", resolved: 98, csat: 4.6, avgTime: 2.8 },
-    { name: "Priya Singh", resolved: 142, csat: 4.9, avgTime: 1.9 },
-    { name: "Lucas Brown", resolved: 67, csat: 4.2, avgTime: 3.6 },
-    { name: "Sofia Garcia", resolved: 113, csat: 4.7, avgTime: 2.3 },
-];
-
-const teamMembers: TeamMember[] = [
-    { id: "1", name: "Alex Chen", email: "alex@company.com", role: "owner", status: "online", lastActive: "Now", initials: "AC", conversations: 24, color: "#6366f1" },
-    { id: "2", name: "Maya Patel", email: "maya@company.com", role: "admin", status: "online", lastActive: "Now", initials: "MP", conversations: 18, color: "#10b981" },
-    { id: "3", name: "James Wilson", email: "james@company.com", role: "supervisor", status: "busy", lastActive: "5m ago", initials: "JW", conversations: 12, color: "#3b82f6" },
-    { id: "4", name: "Priya Singh", email: "priya@company.com", role: "agent", status: "online", lastActive: "Now", initials: "PS", conversations: 31, color: "#f59e0b" },
-    { id: "5", name: "Lucas Brown", email: "lucas@company.com", role: "agent", status: "offline", lastActive: "2h ago", initials: "LB", conversations: 8, color: "#8b5cf6" },
-    { id: "6", name: "Sofia Garcia", email: "sofia@company.com", role: "agent", status: "online", lastActive: "Now", initials: "SG", conversations: 22, color: "#ec4899" },
-    { id: "7", name: "David Kim", email: "david@company.com", role: "viewer", status: "offline", lastActive: "1d ago", initials: "DK", conversations: 0, color: "#14b8a6" },
-];
-
-const chatVolumeData = [
-    { hour: "06:00", volume: 28 }, { hour: "08:00", volume: 84 },
-    { hour: "10:00", volume: 152 }, { hour: "12:00", volume: 188 },
-    { hour: "14:00", volume: 164 }, { hour: "16:00", volume: 212 },
-    { hour: "18:00", volume: 176 }, { hour: "20:00", volume: 98 },
-    { hour: "22:00", volume: 42 },
-];
-
 export default function AnalyticsPage() {
     const { AxiosPrivate } = useAxios();
     const { workspace: workspaceId } = useParams();

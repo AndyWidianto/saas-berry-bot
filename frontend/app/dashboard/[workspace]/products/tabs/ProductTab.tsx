@@ -31,6 +31,7 @@ export const ProductList = ({ workspaceId }: { workspaceId: string }) => {
     selectedProduct,
     page,
     setPage,
+    totalPage,
   } = useProduct(workspaceId);
   const status = [
     { id: "1", label: "All", name: "All" },
@@ -226,10 +227,10 @@ export const ProductList = ({ workspaceId }: { workspaceId: string }) => {
             <span className="font-medium text-foreground">{products.length}</span> produk
           </div>
           <div className="flex gap-2">
-            <Btn variant="outline" size="sm" onClick={() => setPage(prev => prev - 1)} disabled>
+            <Btn variant="outline" size="sm" onClick={() => setPage(prev => Math.max(1, prev - 1))}>
               Sebelumnya
             </Btn>
-            <Btn variant="outline" size="sm" onClick={() => setPage(prev => prev + 1)}>
+            <Btn variant="outline" size="sm" onClick={() => setPage(prev => Math.min(totalPage, prev + 1))}>
               Selanjutnya
             </Btn>
           </div>
