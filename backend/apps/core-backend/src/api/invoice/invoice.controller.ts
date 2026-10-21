@@ -3,6 +3,7 @@ import { InvoiceService } from "./invoice.service";
 import { AuthGuard } from "@nestjs/passport";
 import { SkipThrottle } from "@nestjs/throttler";
 import type { RequestAndPayload } from "@library/types";
+import { GetQueryDto } from "@library/dto/query.dto";
 
 
 
@@ -21,8 +22,8 @@ export class InvoiceController {
     async getAll(
         @Req() req: RequestAndPayload,
         @Param("workspaceId") workspaceId: string,
-        @Query() query: { lastId?: string, limit?: string }) {
-        return await this.service.getAll(req.user, workspaceId, query.lastId, query.limit);
+        @Query() query: GetQueryDto) {
+        return await this.service.getAll(req.user, workspaceId, query);
     }
 
     @SkipThrottle()
@@ -31,8 +32,8 @@ export class InvoiceController {
     async getAllInvoice(
         @Req() req: RequestAndPayload,
         @Param("workspaceId") workspaceId: string,
-        @Query() query: { lastId?: string, limit?: string }) {
-        return await this.service.getAllInvoices(req.user, workspaceId, query.lastId, query.limit);
+        @Query() query: GetQueryDto) {
+        return await this.service.getAllInvoices(req.user, workspaceId, query);
     }
 
     @Get("invoices/import")

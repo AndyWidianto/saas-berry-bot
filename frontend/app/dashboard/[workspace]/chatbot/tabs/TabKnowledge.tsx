@@ -3,41 +3,36 @@ import { Btn } from "@/app/components/Button";
 import { Card } from "@/app/components/Cards";
 import ModalAddUrlKnowledge from "@/app/components/ModalAddUrlKnowledge";
 import { PageHeader } from "@/app/components/PageHeader";
-import useAxios from "@/lib/axios-service";
-import { Knowledge, ResponseApi } from "@/lib/types";
+import { Knowledge } from "@/lib/types";
 import axios from "axios";
 import { Plus, Search, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useAddUrlKnowledge, useCreateKnowledge, useDeleteKnowledge, useGetKnowledges } from "../features/hooks/useKnowledge";
 
 export default function TabKnowledge({ workspaceId }: { workspaceId: string }) {
-    const { AxiosPrivate } = useAxios();
     const [loadingCreateKnowledge, setLoadingCreateKnowledge] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
-    const [knowledgeItems, setKnowledgeItems] = useState<Knowledge[]>([]);
     const [knowledgeId, setKnowledgeId] = useState<string | null>(null);
+
+    const [knowledgeCache, setKnowledgeCache] = useState<Knowledge | null>(null);
     const inputFileRef = useRef<HTMLInputElement | null>(null);
 
+    const { data: knowledges } = useGetKnowledges(workspaceId, {});
+    const { mutateAsync: createKnowledge } = useCreateKnowledge(workspaceId);
+    const { mutateAsync: deleteKnowledge } = useDeleteKnowledge({})
+    const { mutateAsync: addUrlKnowledge } = useAddUrlKnowledge({});
 
-    const fetchKnowledges = async () => {
-        try {
-            const res = await AxiosPrivate.get(`/${workspaceId}/knowledges`);
-            const result: ResponseApi = res.data;
-            const data: Knowledge[] = result.data;
-            setKnowledgeItems(data);
-        } catch (err) {
-            console.error("Fetch error: ", err);
-        }
-    }
+    const knowledgeItems = knowledges?.data ?? [];
 
-    const deleteKnowledge = async (id: string) => {
+    const handleDeleteKnowledge = async (id: string) => {
         if (!confirm("Apakah anda yakin ingin menghapus" + id + "?")) return;
         try {
             setKnowledgeId(id);
-            const res = await AxiosPrivate.delete(`/${workspaceId}/knowledges/${id}`);
-            const result = res.data;
-            setKnowledgeItems(prev => prev.filter(p => p.id !== id));
-            toast.success("Knowledge berhasil di hapus");
+            await deleteKnowledge({
+                workspaceId,
+                id,
+            })
         } catch (err) {
             if (axios.isAxiosError(err)) {
                 const message = err.response?.data.message || "Gagal delete knowledge";
@@ -64,7 +59,7 @@ export default function TabKnowledge({ workspaceId }: { workspaceId: string }) {
                 ? workspaceId[0]
                 : (workspaceId || "");
 
-            setKnowledgeItems(prev => [{
+            setKnowledgeCache({
                 id: temporaryId,
                 name: file.name || "",
                 size: file.size || 0,
@@ -75,19 +70,12 @@ export default function TabKnowledge({ workspaceId }: { workspaceId: string }) {
                 createdAt: createdAt,
                 updatedAt: createdAt,
                 modelName: ""
-            }, ...prev]);
-
-            const formdata = new FormData();
-            formdata.append("file", file);
-            const res = await AxiosPrivate.post(`/${workspaceId}/knowledges`, formdata, {
-                headers: {
-                    "Content-Type": "multipart/form-data"
-                }
             });
-            const result = res.data;
-            setKnowledgeItems(prev => prev.map(p => p.id === temporaryId ? (result.data) : p));
+
+            await createKnowledge(file)
+            
+            setKnowledgeCache(null);
         } catch (err) {
-            setKnowledgeItems(prev => prev.filter(p => p.id !== temporaryId));
             if (axios.isAxiosError(err)) {
                 const message = err.response?.data.message || "Gagal menambahkan knoledge";
                 toast.error(message);
@@ -107,7 +95,7 @@ export default function TabKnowledge({ workspaceId }: { workspaceId: string }) {
                 ? workspaceId[0]
                 : (workspaceId || "");
 
-            setKnowledgeItems(prev => [{
+            setKnowledgeCache({
                 id: temporaryId,
                 name: url || "",
                 size: 0,
@@ -118,16 +106,14 @@ export default function TabKnowledge({ workspaceId }: { workspaceId: string }) {
                 createdAt: createdAt,
                 updatedAt: createdAt,
                 modelName: ""
-            }, ...prev]);
+            });
             setIsOpen(false);
 
-            const res = await AxiosPrivate.post(`/${workspaceId}/knowledges/url`, {
+            await addUrlKnowledge({
+                workspaceId,
                 url
-            });
-            const result = res.data;
-            setKnowledgeItems(prev => prev.map(p => p.id === temporaryId ? (result.data) : p));
+            })
         } catch (err) {
-            setKnowledgeItems(prev => prev.filter(p => p.id !== temporaryId));
             if (axios.isAxiosError(err)) {
                 const message = err.response?.data.message || "Gagal menambahkan knoledge";
                 toast.error(message);
@@ -137,9 +123,6 @@ export default function TabKnowledge({ workspaceId }: { workspaceId: string }) {
         }
     }
 
-    useEffect(() => {
-        fetchKnowledges();
-    }, []);
 
 
     return (
@@ -200,7 +183,7 @@ export default function TabKnowledge({ workspaceId }: { workspaceId: string }) {
                                         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{k.updatedAt}</td>
                                         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{k.size}</td>
                                         <td className="px-4 py-3 whitespace-nowrap">
-                                            <button onClick={() => deleteKnowledge(k.id)} disabled={k.id === knowledgeId} className="text-muted-foreground hover:text-destructive transition-colors">
+                                            <button onClick={() => handleDeleteKnowledge(k.id)} disabled={k.id === knowledgeId} className="text-muted-foreground hover:text-destructive transition-colors">
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
                                         </td>

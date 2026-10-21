@@ -1,6 +1,6 @@
 import { PrismaService } from "@library/prisma/prisma.service";
 import { CallbackMidtransPayload, PayloadJWT } from "@library/types";
-import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { MidtransCallbackDto, TopupDto } from "@library/dto/balance.dto";
 import MidtransClient from "midtrans-client";
@@ -11,6 +11,7 @@ import * as crypto from 'crypto';
 @Injectable()
 export class BalanceService implements OnModuleInit {
     private snap: MidtransClient.Snap;
+    private readonly logger = new Logger();
     constructor(
         private prisma: PrismaService,
         private workspaceService: WorkspaceService,
@@ -27,8 +28,8 @@ export class BalanceService implements OnModuleInit {
     }
 
     async topup(user: PayloadJWT, workspaceId: string, data: TopupDto) {
-        await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
-        const MINIMUM_TOPUP = 20_000;
+        //await this.workspaceService.validateRoleWorkspace(workspaceId, user.id);
+        const MINIMUM_TOPUP = 5_000;
         if (data.nominal < MINIMUM_TOPUP) {
             throw new BadRequestException(`Minimal topup ${MINIMUM_TOPUP}`);
         }
@@ -39,16 +40,16 @@ export class BalanceService implements OnModuleInit {
         const startOfMonth = new Date(year, now.getMonth(), 1);
         const endOfMonth = new Date(year, now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-        // const totalInvoiceThisMonth = await this.prisma.invoice.count({
-        //     where: {
-        //         createdAt: {
-        //             gte: startOfMonth,
-        //             lte: endOfMonth
-        //         }
-        //     }
-        // });
+        const totalInvoiceThisMonth = await this.prisma.invoice.count({
+            where: {
+                createdAt: {
+                    gte: startOfMonth,
+                    lte: endOfMonth
+                }
+            }
+        });
 
-        // const nextNumber = String(totalInvoiceThisMonth + 1).padStart(4, '0');
+        const nextNumber = String(totalInvoiceThisMonth + 1).padStart(4, '0');
         const orderId = `INV-${Date.now()}`;
 
         const parameter = {
@@ -58,29 +59,32 @@ export class BalanceService implements OnModuleInit {
             },
             customer_details: {
                 first_name: user.name || "Customer",
-                email: user.email,
-                workspaceId: workspaceId
-            }
+                email: user.email
+            },
         };
+        try {
+            const transaction = await (this.snap as any).createTransaction(parameter);
 
-        const transaction = await (this.snap as any).createTransaction(parameter);
+            const invoice = await this.prisma.invoice.create({
+                data: {
+                    invoiceNumber: orderId,
+                    workspaceId: workspaceId,
+                    creditAmount: data.nominal,
+                    subtotal: data.nominal,
+                    taxAmount: 0,
+                    totalAmount: data.nominal,
+                    currency: "IDR",
+                    status: "PENDING",
+                    paymentProvider: "midtrans",
+                    paymentUrl: transaction.redirect_url,
+                }
+            });
 
-        const invoice = await this.prisma.invoice.create({
-            data: {
-                invoiceNumber: orderId,
-                workspaceId: workspaceId,
-                creditAmount: data.nominal,
-                subtotal: data.nominal,
-                taxAmount: 0,
-                totalAmount: data.nominal,
-                currency: "IDR",
-                status: "PENDING",
-                paymentProvider: "midtrans",
-                paymentUrl: transaction.redirect_url,
-            }
-        });
-
-        return { token: transaction.token, redirect: transaction.redirect_url, data: invoice };
+            return { token: transaction.token, redirect: transaction.redirect_url, data: invoice };
+        } catch (err) {
+            this.logger.error("Error Processing");
+            console.error("Err: ", err);
+        }
     }
 
     async midtransCallback(payload: CallbackMidtransPayload, secretKey: string) {

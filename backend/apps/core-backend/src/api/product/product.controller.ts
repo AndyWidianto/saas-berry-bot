@@ -41,7 +41,6 @@ export class ProductController {
         return await this.service.delete(req.user, params.workspaceId, params.id);
     }
 
-    @SkipThrottle()
     @Get()
     @UseGuards(AuthGuard("jwt"))
     async getAll(

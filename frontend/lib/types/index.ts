@@ -17,3 +17,18 @@ export interface ResponseApi {
     nextId: string;
     total: number;
 }
+
+export interface ResultResponse<T> {
+    data: T;
+    totalPage: number;
+    nextId: string;
+    total: number;
+    message?: string;
+}
+
+export interface Filter {
+    cursor?: string;
+    limit?: number;
+    workspaceId?: string;
+    search?: string;
+}

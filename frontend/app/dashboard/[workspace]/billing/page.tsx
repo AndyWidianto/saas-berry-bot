@@ -5,17 +5,18 @@ import { PageHeader } from "../../../components/PageHeader";
 import { Card } from "../../../components/Cards";
 import { Badge, BadgeVariant } from "../../../components/Bagde";
 import { Btn } from "../../../components/Button";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import TopUpModal from "@/app/components/TopUpModal";
 import useAxios from "@/lib/axios-service";
 import { useParams } from "next/navigation";
-import { CreditLedger, CreditTransactionType, Invoice, WorkspaceBalance } from "@/lib/types";
+import { CreditLedger, CreditTransactionType, Filter, Invoice, WorkspaceBalance } from "@/lib/types";
 import { useBalanceStore } from "@/lib/store/balanceStore";
 import { InvoicePdfDocument } from "@/app/components/InvoicePdfDocument";
 import { pdf } from "@react-pdf/renderer";
 import axios from "axios";
 import { toast } from "sonner";
 import Script from "next/script";
+import { useAddInvoice, useGetInvoices, useGetLedgers } from "./feature/hooks/useInvoice";
 
 
 declare global {
@@ -67,29 +68,59 @@ const formatIDR = (val: number) =>
 export default function BillingPage() {
     const { AxiosPrivate } = useAxios();
     const { balance, setBalance } = useBalanceStore();
-    const { workspace: workspaceId } = useParams();
+    const { workspace: workspaceId } = useParams<{ workspace: string }>();
 
     const [activeTab, setActiveTab] = useState<"invoices" | "ledgers">("invoices");
     const [openModalTopUp, setOpenModalTopUp] = useState(false);
 
     // State Data Invoices
-    const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [invoicePage, setInvoicePage] = useState(1);
     const [invoiceNextId, setInvoiceNextId] = useState<string | null>(null);
-    const [invoiceTotalPages, setInvoiceTotalPages] = useState(1);
-    const [invoiceTotalItems, setInvoiceTotalItems] = useState(0);
-
+    const [historyInvoice, setHistoryInvoice] = useState([{
+        page: 1,
+        cursor: ""
+    }])
     // State Data Credit Ledgers
-    const [ledgers, setLedgers] = useState<CreditLedger[]>([]);
     const [ledgerPage, setLedgerPage] = useState(1);
     const [ledgerNextId, setLedgerNextId] = useState<string | null>(null);
-    const [ledgerTotalPages, setLedgerTotalPages] = useState(1);
-    const [ledgerTotalItems, setLedgerTotalItems] = useState(0);
+    const [historyLedger, setHistoryLedger] = useState([{
+        page: 1,
+        cursor: ""
+    }])
 
     const [loading, setLoading] = useState(false);
     const [loadingImport, setLoadingImport] = useState(false);
 
     const itemsPerPage = 10;
+
+
+    const filter = useMemo((): Filter => {
+        return {
+            cursor: invoiceNextId || "",
+            limit: itemsPerPage,
+            // search: searchQuery
+        };
+    }, [invoiceNextId, invoicePage]);
+
+    const filterLedger = useMemo((): Filter => {
+        return {
+            cursor: ledgerNextId ?? "",
+            limit: itemsPerPage,
+            // search: searchQuery
+        };
+    }, [ledgerNextId, ledgerPage]);
+
+    const { data: resultInvoices } = useGetInvoices(workspaceId, filter);
+    const { data: resultLedgers } = useGetLedgers(workspaceId, filterLedger);
+    const { mutateAsync: addInvoice } = useAddInvoice(workspaceId);
+
+    const invoices = resultInvoices?.data ?? [];
+    const invoiceTotalPages = resultInvoices?.totalPage ?? 10;
+    const invoiceTotalItems = resultInvoices?.total ?? 10;
+
+    const ledgers = resultLedgers?.data ?? [];
+    const ledgerTotalPages = resultLedgers?.totalPage ?? 10;
+    const ledgerTotalItems = resultLedgers?.total ?? 10;
 
     const fetchBalance = async (balance: WorkspaceBalance | null) => {
         if (balance && balance.workspaceId === workspaceId) return;
@@ -101,51 +132,39 @@ export default function BillingPage() {
         }
     };
 
-    // Fetch Invoices (Tab 1)
-    const fetchInvoices = async (page: number, currentNextId?: string | null) => {
-        try {
-            setLoading(true);
-            const res = await AxiosPrivate.get(`/${workspaceId}/invoices`, {
-                params: {
-                    limit: itemsPerPage,
-                    lastId: currentNextId ?? undefined
-                }
-            });
-            const result = res.data;
-
-            setInvoices(prev => page === 1 ? result.data : [...prev, ...result.data]);
-            setInvoiceTotalPages(result.totalPage || 1);
-            setInvoiceTotalItems(result.total || 0);
-            setInvoiceNextId(result.nextId);
-        } catch (err) {
-            console.error("Fetch Invoices Error: ", err);
-        } finally {
-            setLoading(false);
+    useEffect(() => {
+        let existingHistory = historyInvoice.find(h => h.page === invoicePage);
+        if (!existingHistory) {
+            if (!resultInvoices) return;
+            const newHistory = {
+                page: invoicePage,
+                cursor: resultInvoices.nextId
+            }
+            setHistoryInvoice(prev => [...prev, newHistory]);
+            existingHistory = newHistory;
         }
-    };
+        setInvoiceNextId(existingHistory?.cursor)
+    }, [invoicePage, historyInvoice])
 
-    // Fetch Credit Ledgers (Tab 2)
-    const fetchLedgers = async (page: number, currentNextId?: string | null) => {
-        try {
-            setLoading(true);
-            const res = await AxiosPrivate.get(`/${workspaceId}/creditledger`, {
-                params: {
-                    limit: itemsPerPage,
-                    lastId: currentNextId ?? undefined
-                }
-            });
-            const result = res.data;
+    useEffect(() => {
+        if (!resultLedgers) return;
 
-            setLedgers(prev => page === 1 ? result.data : [...prev, ...result.data]);
-            setLedgerTotalPages(result.totalPage || 1);
-            setLedgerTotalItems(result.total || 0);
-            setLedgerNextId(result.nextId);
-        } catch (err) {
-            console.error("Fetch Ledgers Error: ", err);
-        } finally {
-            setLoading(false);
+        let existingHistory = historyLedger.find(h => h.page === ledgerPage);
+
+        if (!existingHistory) {
+            const newHistory = {
+                page: ledgerPage,
+                cursor: resultLedgers.nextId
+            };
+            setHistoryLedger(prev => [...prev, newHistory]);
+            setLedgerNextId(resultLedgers.nextId);
+        } else {
+            // Jika history untuk halaman ini sudah ada, pakai cursor yang tersimpan
+            setLedgerNextId(existingHistory.cursor);
         }
-    };
+
+    }, [ledgerPage, historyLedger]);
+
 
     // Export PDF Invoice
     const handleDownloadInvoicePdf = async () => {
@@ -178,30 +197,7 @@ export default function BillingPage() {
     // Instant Top Up Midtrans
     const handleCheckout = async (nominal: number) => {
         try {
-            const res = await AxiosPrivate.post(`/${workspaceId}/topup`, { nominal });
-            const result = res.data;
-
-            // if (typeof window !== "undefined" && window.snap) {
-            //     window.snap.pay(result.token, {
-            //         onSuccess: function () {
-            //             toast.success("Pembayaran berhasil!");
-            //             fetchBalance(null);
-            //             fetchInvoices(1, null);
-            //         },
-            //         onPending: function () {
-            //             toast.info("Menunggu pembayaran diselesaikan.");
-            //             fetchInvoices(1, null);
-            //         },
-            //         onError: function () {
-            //             toast.error("Pembayaran gagal!");
-            //         },
-            //         onClose: function () {
-            //             toast.warning("Popup pembayaran ditutup.");
-            //         }
-            //     });
-            // }
-            setInvoices(prev => [result.data, ...prev]);
-            window.open(result.redirect, '_blank');
+            await addInvoice({ nominal })
         } catch (err) {
             console.error("Checkout error: ", err);
             if (axios.isAxiosError(err)) {
@@ -213,8 +209,6 @@ export default function BillingPage() {
     useEffect(() => {
         if (!workspaceId) return;
         fetchBalance(balance);
-        fetchInvoices(1, null);
-        fetchLedgers(1, null);
     }, [workspaceId]);
 
     // Formatters Helper
@@ -225,7 +219,7 @@ export default function BillingPage() {
             <Script
                 src={process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true" ? "https://app.midtrans.com/snap/snap.js" : "https://app.sandbox.midtrans.com/snap/snap.js"}
                 data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-                strategy="lazyOnload"
+                strategy="afterInteractive"
             />
 
             <PageHeader title="Wallet & Top Up" subtitle="Kelola saldo Anda, beli kredit, dan pantau penggunaan" />
@@ -453,15 +447,7 @@ export default function BillingPage() {
                         <Btn
                             variant="secondary"
                             size="sm"
-                            onClick={() => {
-                                if (activeTab === "invoices" && invoicePage > 1) {
-                                    setInvoicePage(p => p - 1);
-                                    fetchInvoices(invoicePage - 1, invoiceNextId);
-                                } else if (activeTab === "ledgers" && ledgerPage > 1) {
-                                    setLedgerPage(p => p - 1);
-                                    fetchLedgers(ledgerPage - 1, ledgerNextId);
-                                }
-                            }}
+                            onClick={() => activeTab === "invoices" ? setInvoicePage(prev => Math.max(1, prev - 1)) : setLedgerPage(prev => Math.max(1, prev - 1))}
                             disabled={activeTab === "invoices" ? invoicePage === 1 : ledgerPage === 1}
                             className="h-8 px-2 text-xs"
                         >
@@ -471,15 +457,7 @@ export default function BillingPage() {
                         <Btn
                             variant="secondary"
                             size="sm"
-                            onClick={() => {
-                                if (activeTab === "invoices" && invoicePage < invoiceTotalPages) {
-                                    setInvoicePage(p => p + 1);
-                                    fetchInvoices(invoicePage + 1, invoiceNextId);
-                                } else if (activeTab === "ledgers" && ledgerPage < ledgerTotalPages) {
-                                    setLedgerPage(p => p + 1);
-                                    fetchLedgers(ledgerPage + 1, ledgerNextId);
-                                }
-                            }}
+                            onClick={() => activeTab === "invoices" ? setInvoicePage(p => Math.min(invoiceTotalPages, p + 1)) : setLedgerPage(p => Math.min(ledgerTotalPages, p + 1))}
                             disabled={activeTab === "invoices" ? invoicePage >= invoiceTotalPages : ledgerPage >= ledgerTotalPages}
                             className="h-8 px-2 text-xs"
                         >

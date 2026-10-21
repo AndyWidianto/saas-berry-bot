@@ -16,7 +16,7 @@ export class BalanceController {
     @Post(":workspaceId/topup")
     @UseGuards(AuthGuard("jwt"))
     async topup(@Param("workspaceId") id: string, @Req() req: RequestAndPayload, @Body() body: TopupDto) {
-        return await this.service.topup(req.user, id, body)
+        return await this.service.topup(req.user, id, body);
     }
 
     @Post("midtrans-callback")
