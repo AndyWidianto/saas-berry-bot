@@ -24,10 +24,9 @@ import { BullmqModule } from './bullmq/bullmq.module';
 @Module({
   imports: [
     PrismaModule,
-    EventModule,
+    // EventModule,
     AgentModule,
     ApiModule,
-    EventModule,
     NodemailerModule,
     EmbeddingModule,
     StorageModule,
