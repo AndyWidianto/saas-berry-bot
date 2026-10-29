@@ -1,4 +1,3 @@
-import { EventGateway } from "@core/event/event.gateway";
 import { NotificationAction } from "@library/dto/notification.dto";
 import { NotificationSettingType } from "@library/dto/workspace.dto";
 import { NodemailerService } from "@library/nodemailer/nodemailer.service";
@@ -20,7 +19,6 @@ export class QueueNotificationProcessor extends WorkerHost {
     constructor(
         private prisma: PrismaService,
         private nodemailer: NodemailerService,
-        private eventGateway: EventGateway,
         @Inject(CACHE_MANAGER) private cacheManager: Cache
     ) {
         super();
@@ -53,7 +51,6 @@ export class QueueNotificationProcessor extends WorkerHost {
         const workspace = await this.prisma.workspace.findFirst({
             where: { id: data.workspaceId }
         });
-        this.eventGateway.newMessage(workspace?.ownerId || "", data);
     }
     async handleNotifModelNotSetting(workspaceId: string) {
         try {
@@ -182,12 +179,10 @@ export class QueueNotificationProcessor extends WorkerHost {
         if (status === "CONNECTED" || status === "DISCONNECTED") {
             const userId = this.userIds[instanceName];
             if (userId) {
-                this.eventGateway.handleUpdateIntegration(userId, { instanceName, status });
                 return;
             }
             const workspace = await this.prisma.workspace.findUnique({ where: { id: workspaceId } });
             if (workspace?.ownerId) {
-                this.eventGateway.handleUpdateIntegration(workspace?.ownerId, { instanceName, status });
                 this.userIds[instanceName] = workspace.ownerId;
             }
         }
