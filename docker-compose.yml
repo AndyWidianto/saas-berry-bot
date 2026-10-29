@@ -132,3 +132,21 @@ services:
       - ./frontend/.env
     networks:
       - app-network
+  # ==========================================
+  # 7. Frontend React/Vite (Port 8443)
+  # ==========================================
+  frontend_admin:
+    build:
+      context: ./frontend_admin
+      dockerfile: Dockerfile.vite
+    image: andywidianto12345/saas-frontend_admin:latest
+    container_name: frontend-admin-app
+    restart: always
+    ports:
+      - "8443:80"  # Port 8443 di browser -> diarahkan ke port 80 Nginx di container
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ./frontend_admin/.env
+    networks:
+      - app-network
